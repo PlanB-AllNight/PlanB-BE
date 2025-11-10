@@ -1,0 +1,89 @@
+# === Python (venv, pycache, logs) ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+*.db
+*.egg-info/
+.env
+.env.*
+venv/
+.venv/
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# Jupyter
+.ipynb_checkpoints/
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# === VSCode ===
+.vscode/
+
+# === macOS 시스템 파일 ===
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS Thumbnails
+._*
+
+# macOS Spotlight
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+
+# === Windows 시스템 파일 ===
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+System Volume Information/
+
+# === Docker ===
+*.pid
+*.seed
+docker-compose.override.yml
+docker-compose.dev.yml
+docker-compose.prod.yml
+**/Dockerfile.*
+.docker/
+.dockerignore
+
+# === FastAPI / Uvicorn 관련 (logs 등) ===
+*.log
+*.pid
+*.coverage
+coverage.xml
+htmlcov/
+
+# === Test cache ===
+.cache/
+.pytest_cache/
+
+# === Editor / OS backup ===
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# === Node / React (추후 프론트엔드 연동 대비) ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# === 프로젝트 특화 ===
+# (backend/data/에 있는 예시 json은 git에 커밋할 수 있으므로 제외 안 함)
