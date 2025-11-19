@@ -1,19 +1,55 @@
-### ⚙️ 로컬 개발 환경 실행 (venv)
-1. backend 디렉토리로 이동
-    
-    ```cd backend```
-2. 가상환경 생성 및 실행 (Mac/Linux 기준)
-    ```
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-3. 의존성 설치
+# PlanB - 대학생 금융 코칭 MCP 서버
 
-    ```pip install -r requirements.txt```
+코스콤 AI Agent Challenge 2025
 
-4. FastAPI 서버 실행
+## 빠른 시작
 
-    ```uvicorn main:app --reload```
+### 1. 환경 설정
 
-### 🐳 Docker 실행 (배포 환경 확인용)
-```docker-compose up --build```
+```bash
+# 가상환경 생성
+python3 -m venv venv
+
+# 가상환경 활성화
+source venv/bin/activate  # Mac/Linux
+# venv\Scripts\activate    # Windows
+
+# 의존성 설치
+cd backend
+pip install -r requirements.txt
+```
+
+### 2. 서버 실행
+
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+서버 확인: http://localhost:8000/docs
+
+### 3. 🐳 Docker 실행
+
+```bash
+docker compose up --build
+```
+
+## 샘플 데이터
+
+- `backend/data/mydata.json`: 3개월 거래 데이터 (샘플)
+- `backend/data/generate_mydata.py`: 새 데이터 생성 스크립트
+
+### 새 데이터 생성
+
+```bash
+cd backend/data
+python3 generate_mydata.py
+mv mydata_3months.json mydata.json
+```
+
+## 기술 스택
+
+- FastAPI
+- Python 3.11
+- Pandas
+- Docker
