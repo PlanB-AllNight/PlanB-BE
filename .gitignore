@@ -87,3 +87,8 @@ pnpm-debug.log*
 
 # === 프로젝트 특화 ===
 # (backend/data/에 있는 예시 json은 git에 커밋할 수 있으므로 제외 안 함)
+
+# === 데이터 백업 파일 ===
+backend/data/mydata_backup*.json
+backend/data/mydata_3months.json
+backend/data/setup_data.sh
