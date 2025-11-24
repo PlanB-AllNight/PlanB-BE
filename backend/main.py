@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import create_db_and_tables
+# DB 테이블 생성용
+from backend.models import user, spending
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
