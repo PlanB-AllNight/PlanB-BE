@@ -9,15 +9,20 @@ router = APIRouter()
 # 회원가입
 @router.post("/register", response_model=UserRead)
 def signup(user: UserCreate, session: Session = Depends(get_session)):
-    # 1. 이메일(ID) 중복 체크
+    # 1. 아이디 중복 체크
     existing_user = session.exec(select(User).where(User.userId == user.userId)).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
+        raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
     
-    # 2. 비밀번호 암호화
+    # 2. 전화번호 중복 체크
+    existing_phone = session.exec(select(User).where(User.phone == user.phone)).first()
+    if existing_phone:
+        raise HTTPException(status_code=400, detail="이미 가입된 전화번호입니다.")
+    
+    # 3. 비밀번호 암호화
     hashed_pw = get_password_hash(user.password)
     
-    # 3. DB 저장 (DTO -> Entity 변환)
+    # 4. DB 저장 (DTO -> Entity 변환)
     db_user = User(
         userId=user.userId,
         password=hashed_pw,
