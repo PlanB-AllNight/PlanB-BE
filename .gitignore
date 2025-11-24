@@ -92,3 +92,17 @@ pnpm-debug.log*
 backend/data/mydata_backup*.json
 backend/data/mydata_3months.json
 backend/data/setup_data.sh
+
+# --- 보안 및 환경설정 ---
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+
+# --- 데이터베이스 (SQLite) ---
+*.db
+*.sqlite3
+*.sqlite
+planb.db
