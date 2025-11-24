@@ -1,10 +1,19 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from backend.database import create_db_and_tables
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()
+    print("DB 테이블 생성 완료!")
+    yield
 
 app = FastAPI(
     title="PlanB MCP Server",
     description="코스콤 AI Agent Challenge - 대학생 금융 코칭 서버",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS 설정: React 프론트와 연동
