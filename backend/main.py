@@ -5,6 +5,9 @@ from backend.database import create_db_and_tables
 # DB 테이블 생성용
 from backend.models import analyze_spending, user
 
+# API 라우터 임포트
+from backend.api import user
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
@@ -39,3 +42,6 @@ def read_root():
 @app.post("/tools/analyze_spending")
 def analyze_spending():
     return {"message": "Tool stub: analyze_spending()"}
+
+# 라우터 등록
+app.include_router(user.router, prefix="/users", tags=["User"])
