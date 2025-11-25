@@ -39,7 +39,7 @@ TRANSACTIONS_PATTERNS = {
     },
     "쇼핑": {
         "stores": ["쿠팡", "네이버페이", "무신사", "지마켓"],
-        "amount_range": (20000, 100000),
+        "amount_range": (30000, 150000),
         "frequency": 0.15,  # 일주일에 1번 정도
         "time_slots": [(14, 23)]
     },
@@ -78,6 +78,18 @@ TRANSACTIONS_PATTERNS = {
         "amount_range": (50000, 150000),
         "frequency": 0.08,
         "time_slots": [(14, 22)]
+    },
+    "저축": {
+        "stores": ["카카오뱅크 세이프박스", "토스 모으기", "주택청약", "비상금 통장"],
+        "amount_range": (10000, 100000),
+        "frequency": 0.07,  # 약 2주에 1번 꼴 (불규칙 저축)
+        "time_slots": [(20, 23)]  # 하루를 마무리하며 남은 돈 저축
+    },
+    "투자": {
+        "stores": ["토스증권", "미니스탁", "뮤직카우"],
+        "amount_range": (5000, 50000),  # 대학생 소액 투자 (5천원~5만원)
+        "frequency": 0.07,  # 약 2주에 1번 꼴
+        "time_slots": [(9, 15), (19, 22)]  # 주식 장 시간 또는 저녁 시간
     }
 }
 
@@ -86,6 +98,7 @@ FIXED_EXPENSES = [
     {"day": 1, "store": "넷플릭스", "category": "구독", "amount": 13500, "method": "자동결제"},
     {"day": 5, "store": "멜론", "category": "구독", "amount": 10900, "method": "자동결제"},
     {"day": 9, "store": "KT 통신비", "category": "통신", "amount": 55000, "method": "자동이체"},
+    {"day": 25, "store": "집주인(월세)", "category": "주거", "amount": 500000, "method": "계좌이체"},
 ]
 
 # 수입 패턴
