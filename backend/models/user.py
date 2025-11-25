@@ -4,6 +4,8 @@ from sqlmodel import Field, SQLModel
 from datetime import datetime
 
 class User(SQLModel, table=True):
+    __tablename__ = "user"
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     userId: str = Field(unique=True, index=True) # 아이디
     password: str  # 암호화된 비밀번호 저장
