@@ -1,9 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from jose import jwt
+import os
+from dotenv import load_dotenv
 
-# 설정 (나중에 .env로)
-SECRET_KEY = "planb-secret-key-change-me" # 아무 문자열이나 길게
+load_dotenv()
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 만료시간: 7일
 
@@ -20,7 +22,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # JWT 토큰 생성
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
