@@ -3,10 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import create_db_and_tables
 # DB 테이블 생성용
-from backend.models import user
+from backend.models import user, budget
 
 # API 라우터 임포트
-from backend.api import user
+from backend.api import user, budget
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,3 +45,4 @@ def analyze_spending():
 
 # 라우터 등록
 app.include_router(user.router, prefix="/users", tags=["User"])
+app.include_router(budget.router, prefix="/budget", tags=["Budget"])

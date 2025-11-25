@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime
 from enum import Enum
+from sqlalchemy import Column, JSON
 
 class PlanType(str, Enum):
     fifty = "50/30/20"
@@ -10,16 +11,19 @@ class PlanType(str, Enum):
     forty = "40/30/30"
 
 class BudgetAnalysis(SQLModel, table=True):
+    __tablename__ = "budget_analysis"
+    
     id: Optional[int] = Field(default=None, primary_key=True)
-    spending_analysis_id: int = Field(foreign_key="spendinganalysis.id")
+    user_id: int = Field(foreign_key="user.id", nullable=False)
+    spending_analysis_id: int = Field(foreign_key="spending_analysis.id", nullable=False)
 
     plan_type: PlanType
     essential_budget: int
     optional_budget: int
     saving_budget: int
 
-    category_proposals: str  # JSON 형식 그대로 저장
-    ai_proposal: str  # JSON 형식 그대로 저장
+    category_proposals: List[Dict[str, str]] = Field(sa_column=Column(JSON))
+    ai_proposal: List[str] = Field(sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=datetime.now)
 
