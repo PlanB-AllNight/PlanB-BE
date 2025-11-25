@@ -130,6 +130,13 @@ def analyze_spending(
         cat_group = cat_group.sort_values(by='sum', ascending=False)
         
         top_category = cat_group.index[0] if not cat_group.empty else "없음"
+
+        store_group = spending_df.groupby(['store', 'display_category'])['amount'].agg(['sum', 'count']).reset_index()
+        store_group.columns = ['store_name', 'category_name', 'amount', 'count']
+
+        store_group['avg_amount'] = (store_group['amount'] / store_group['count']).astype(int)
+        store_group = store_group.sort_values(by='amount', ascending=False)
+        store_data = store_group.to_dict('records')
         
         # 과소비 탐지 및 인사이트 생성
         overspent_category = None
@@ -218,6 +225,7 @@ def analyze_spending(
             
             # SpendingCategoryStats
             "chart_data": chart_data,
+            "store_data": store_data,
             
             # 메타 정보
             "meta": {
