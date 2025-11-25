@@ -1,4 +1,5 @@
 from typing import Optional
+from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 from datetime import datetime
 
@@ -12,7 +13,7 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
 
 # 회원가입용 DTO
-class UserCreate(SQLModel):
+class UserCreate(BaseModel):
     userId: str
     password: str
     name: str
@@ -20,12 +21,12 @@ class UserCreate(SQLModel):
     phone: str
 
 # 로그인용 DTO
-class UserLogin(SQLModel):
+class UserLogin(BaseModel):
     userId: str
     password: str
 
 # 응답용 DTO (비밀번호 제외)
-class UserRead(SQLModel):
+class UserRead(BaseModel):
     id: int
     userId: str
     name: str
