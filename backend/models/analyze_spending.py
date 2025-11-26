@@ -33,7 +33,6 @@ class SpendingAnalysis(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
 
     category_stats: List["SpendingCategoryStats"] = Relationship(back_populates="analysis")
-    store_stats: List["SpendingStoreStats"] = Relationship(back_populates="analysis")
 
 class SpendingCategoryStats(SQLModel, table=True):
     __tablename__ = "spending_category_stats"
@@ -48,20 +47,6 @@ class SpendingCategoryStats(SQLModel, table=True):
     percent: float
 
     analysis: Optional[SpendingAnalysis] = Relationship(back_populates="category_stats")
-
-class SpendingStoreStats(SQLModel, table=True):
-    __tablename__ = "spending_store_stats"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    analysis_id: Optional[int] = Field(default=None, foreign_key="spending_analysis.id")
-    
-    category_name: str
-    store_name: str
-    amount: int
-    count: int
-    avg_amount: int
-
-    analysis: Optional[SpendingAnalysis] = Relationship(back_populates="store_stats")
 
 # (DTO) - 프론트엔드용
 class CategoryStat(BaseModel):
