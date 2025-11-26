@@ -50,12 +50,18 @@ def compare_with_challenge(
         if not target_category:
             return None
         
-        spending_by_category = tool_result.get("spending_by_category", {})
+        chart_data = tool_result.get("chart_data", [])
+        category_found = None
         
-        if target_category not in spending_by_category:
+        for cat in chart_data:
+            if cat["category_name"] == target_category:
+                category_found = cat
+                break
+        
+        if not category_found:
             return None
         
-        actual_spent = spending_by_category[target_category]["amount"]
+        actual_spent = category_found["amount"]
         baseline_spent = plan_detail.get("baseline_amount", actual_spent)
         target_spent = int(baseline_spent * (1 - reduce_percent / 100))
         
@@ -291,8 +297,7 @@ async def run_spending_analysis_service(
         session.add(analysis_db)
         session.commit()
         session.refresh(analysis_db)
-        
-        # 자식 테이블 저장
+
         for stat in chart_data_list:
             category_stat = SpendingCategoryStats(
                 analysis_id=analysis_db.id,
@@ -308,7 +313,7 @@ async def run_spending_analysis_service(
         print(f"DB 저장 실패: {e}")
         raise HTTPException(status_code=500, detail=f"DB 저장 실패: {str(e)}")
     
-    # 7. 프론트엔드 응답
+    # 7. 응답
     response_data = {
         **tool_result,
         "ai_summary": ai_summary,
