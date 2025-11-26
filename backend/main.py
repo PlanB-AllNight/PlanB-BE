@@ -34,32 +34,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    
-    openapi_schema = get_openapi(
-        title="My Budget API",
-        version="1.0.0",
-        routes=app.routes,
-    )
-
-    # 전역 Bearer 인증 추가
-    openapi_schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT"
-        }
-    }
-    # 기본적으로 모든 API에 Authorization 적용됨
-    openapi_schema["security"] = [{"BearerAuth": []}]
-    
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-app.openapi = custom_openapi
-
 # 헬스체크
 @app.get("/")
 def read_root():
