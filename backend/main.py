@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import create_db_and_tables
 # DB 테이블 생성용
-from backend.models import user, budget
+from backend.models import analyze_spending, user, budget
 
 # API 라우터 임포트
 from backend.api import user, budget
