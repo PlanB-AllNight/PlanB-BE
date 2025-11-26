@@ -1,15 +1,10 @@
 import pandas as pd
-import json
 import os
-from fastapi import HTTPException
-from openai import OpenAI
-from backend.core.config import settings
 from sqlmodel import Session, select
 from backend.models.budget import CategoryBudget
 from backend.models.spending import SpendingAnalysis, SpendingCategoryStats
 from analyze_spending import CATEGORY_MAP
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
 DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/mydata.json")
 
 # 카테고리 성격 분류 (needs / wants / savings)
@@ -65,18 +60,10 @@ RULES = {
 def recommend_budget_logic(
         user_id: int,
         selected_plan: str,
+        recent_analysis: SpendingAnalysis,
         session: Session
 ):
-    # 가장 최근 소비 분석 내역 찾기
-    recent_analysis = session.exec(
-        select(SpendingAnalysis)
-        .where(SpendingAnalysis.user_id == user_id)
-        .order_by(SpendingAnalysis.id.desc())
-    ).first()
 
-    if recent_analysis is None:
-        raise HTTPException(status_code=404, detail="먼저 소비 분석(Tool 1)을 진행해주세요.")
-    
     target_month = recent_analysis.month
     total_income = recent_analysis.total_income
 
@@ -214,5 +201,5 @@ def recommend_budget_logic(
             "savings": {"amount": budget_caps["savings"], "percent": int(ratios["savings"]*100)}
         },
         "spending_history": spending_history,
-        "cat_type_guide": TYPE_GUIDE
+        "spending_history_map": current_spending_map
     }
