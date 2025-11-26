@@ -1,19 +1,22 @@
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials 
 from jose import jwt, JWTError
 from sqlmodel import Session
 from backend.database import get_session
 from backend.models.user import User
 from backend.core.security import SECRET_KEY, ALGORITHM
 
-# 토큰 추출 도구
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
+security = HTTPBearer()
 
 # 현재 로그인한 유저 추출
 def get_current_user(
-    token: str = Depends(oauth2_scheme), 
+    credentials: HTTPAuthorizationCredentials = Depends(security), 
     session: Session = Depends(get_session)
 ) -> User:
+    
+    # 실제 토큰 문자열 추출
+    token = credentials.credentials
+
     try:
         # 토큰 디코딩
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
