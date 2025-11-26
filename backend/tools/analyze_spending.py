@@ -25,10 +25,11 @@ CATEGORY_MAP = {
 
 # 과소비 기준
 OVERSPEND_THRESHOLDS = {
-    "카페/디저트": 0.15,
-    "사회/모임": 0.20,
-    "쇼핑/꾸미기": 0.20,
-    "식사": 0.40,
+    "카페/디저트": 15,
+    "사회/모임": 20,
+    "쇼핑/꾸미기": 20,
+    "식사": 40,
+    "취미/여가": 15,
 }
 
 # 데모 날짜 (테스트용)
@@ -132,10 +133,33 @@ def analyze_spending(
         top_category = cat_group.index[0] if not cat_group.empty else "없음"
         
         # 과소비 탐지 및 인사이트 생성
-        overspent_category = None
+        overspent_categories = []
+
+        for cat_name, row in cat_group.iterrows():
+            pct = row['percent']
+            threshold = OVERSPEND_THRESHOLDS.get(cat_name, None)
+            
+            # 기준이 있고, 초과한 경우
+            if threshold and pct > threshold:
+                overspent_categories.append({
+                    "category": cat_name,
+                    "percent": pct,
+                    "threshold": threshold,
+                    "excess": pct - threshold  # 초과 비율
+                })
+        
+        # 초과 비율이 가장 큰 카테고리를 대표 과소비 항목으로 선정
+        if overspent_categories:
+            overspent_categories.sort(key=lambda x: x["excess"], reverse=True)
+            overspent_category = overspent_categories[0]["category"]
+        else:
+            overspent_category = "양호"
+
+        
         insights = []
         suggestions = []
         
+        # 월말 예상 지출 경고
         if is_current_month and projected_total > total_spent * 1.15:
             insights.append({
                 "type": "alert",
@@ -143,31 +167,31 @@ def analyze_spending(
                 "message": f"현재 소비 속도라면 월말 약 {projected_total:,}원 지출 예상",
                 "detail": f"일평균 {daily_average:,}원 (남은 {days_remaining}일)"
             })
-        
-        for cat_name, threshold in OVERSPEND_THRESHOLDS.items():
-            if cat_name in cat_group.index:
-                pct = cat_group.loc[cat_name, 'percent']
-                amt = int(cat_group.loc[cat_name, 'sum'])
-                cnt = int(cat_group.loc[cat_name, 'count'])
-                
-                if pct > (threshold * 100):
-                    if not overspent_category:
-                        overspent_category = cat_name
-                    
-                    insights.append({
-                        "type": "warning",
-                        "category": cat_name,
-                        "message": f"'{cat_name}' 지출 비중({pct}%)이 권장({int(threshold*100)}%)보다 높습니다.",
-                        "detail": f"{cnt}회 사용, 총 {amt:,}원"
-                    })
-                    
-                    save_amt = int(amt * 0.1)
-                    suggestions.append({
-                        "category": cat_name,
-                        "action": f"{cat_name} 지출을 10% 줄이기",
-                        "expected_saving": save_amt,
-                        "message": f"월 {save_amt:,}원 절약 가능"
-                    })
+
+        # 과소비 카테고리별 경고 (상위 3개만)
+        for oversp in overspent_categories[:3]:
+            cat_name = oversp["category"]
+            pct = oversp["percent"]
+            threshold = oversp["threshold"]
+            
+            amt = int(cat_group.loc[cat_name, 'sum'])
+            cnt = int(cat_group.loc[cat_name, 'count'])
+            
+            insights.append({
+                "type": "warning",
+                "category": cat_name,
+                "message": f"'{cat_name}' 지출 비중({pct}%)이 권장({threshold}%)보다 높습니다",
+                "detail": f"{cnt}회 사용, 총 {amt:,}원"
+            })
+            
+            # 개선 제안 생성
+            save_amt = int(amt * 0.1)
+            suggestions.append({
+                "category": cat_name,
+                "action": f"{cat_name} 지출을 10% 줄이기",
+                "expected_saving": save_amt,
+                "message": f"월 {save_amt:,}원 절약 가능"
+            })
         
         if total_saved > 0:
             saving_count = len(saving_df)
@@ -186,9 +210,7 @@ def analyze_spending(
                 "message": f"총 소비의 {top_pct}%가 '{top_category}'에서 발생",
                 "detail": f"주요 지출 항목입니다"
             })
-        
-        insight_summary = f"{target_month}월 소비는 {top_category} 위주이며, 예상 소비액은 {projected_total:,}원입니다."
-        
+                
         chart_data = []
         for cat_name, row in cat_group.iterrows():
             chart_data.append({
@@ -210,9 +232,8 @@ def analyze_spending(
             "projected_total": projected_total,
             
             "top_category": top_category,
-            "overspent_category": overspent_category if overspent_category else "양호",
+            "overspent_category": overspent_category,
             
-            "insight_summary": insight_summary,
             "insights": insights,
             "suggestions": suggestions,
             
