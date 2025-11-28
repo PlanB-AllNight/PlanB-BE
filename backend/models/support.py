@@ -1,4 +1,5 @@
 from typing import Optional
+from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 from enum import Enum
 
@@ -37,3 +38,16 @@ class SupportPolicy(SQLModel, table=True):
 
     # AI/검색/필터용
     keywords: Optional[str]
+
+# 응답용 DTO
+class SupportPolicyRead(BaseModel):
+    id: int
+    category: SupportCategory
+    title: str
+    subtitle: str
+    institution: str
+    apply_period: str
+    target: str
+    pay_method: str
+    content: str
+    application_url: str
