@@ -114,6 +114,9 @@ class SimulateResponse(BaseModel):
     situation_analysis: Dict[str, Any]
     plans: List[Dict[str, Any]]
     
+    ai_summary: str
+    recommendation: str
+    
     simulation_date: str
     meta: Dict[str, Any]
 

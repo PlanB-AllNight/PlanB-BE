@@ -22,7 +22,10 @@ from backend.tools.analyze_spending import (
     get_current_asset,
     get_latest_mydata_date
 )
-from backend.tools.simulate_event import simulate_event
+from backend.services.simulate_event_service import (
+    run_challenge_simulation_service,
+    create_challenge_with_plan
+)
 
 router = APIRouter()
 
@@ -99,12 +102,7 @@ async def initialize_challenge_page(
     if latest_analysis:
         save_potential = max(0, latest_analysis.save_potential)
         has_analysis = True
-
-        # if hasattr(latest_analysis, 'analysis_date') and latest_analysis.analysis_date:
         analysis_date_str = latest_analysis.analysis_date.strftime("%Y-%m-%d")
-        # else:
-            # analysis_date_str = latest_analysis.created_at.strftime("%Y-%m-%d")
-        
         
         # 최신성 체크 (mydata 날짜 vs 분석 날짜)
         analysis_outdated = False
@@ -128,7 +126,7 @@ async def initialize_challenge_page(
     }
 
 
-#  시뮬레이션 실행 API
+#  시뮬레이션 실행 API (AI Service 사용)
 @router.post("/simulate", response_model=SimulateResponse)
 async def run_simulation(
     request: SimulateRequest,
@@ -136,7 +134,7 @@ async def run_simulation(
     session: Session = Depends(get_session)
 ) -> Any:
     """
-    시뮬레이션을 실행하고 추천 플랜을 반환합니다.
+    시뮬레이션을 실행하고 AI가 생성한 맞춤형 플랜을 반환합니다.
     
     Request:
         - event_name: 이벤트 이름 (필수)
@@ -146,50 +144,32 @@ async def run_simulation(
         - monthly_save_potential: 월 저축 가능액 (선택, 없으면 소비분석에서 자동 조회)
     
     Response:
-        Tool의 simulate_event() 결과를 그대로 반환
-        (situation_analysis, plans 포함)
-    
-    Note:
-        - current_asset이 None이면 get_current_asset()로 자동 조회
-        - monthly_save_potential이 None이면 최신 소비분석에서 조회
-        - auto_select=True: 적합한 플랜만 생성 (MAINTAIN + 적합한 플랜 2~3개)
+        AI가 생성한 맞춤형 플랜들 (situation_analysis, plans, ai_summary, recommendation 포함)
     """
     
-    if request.current_asset is not None:
-        current_asset = request.current_asset
-    else:
-        current_asset = get_current_asset(current_user.id)
-    
-    if request.monthly_save_potential is not None:
-        save_potential = request.monthly_save_potential
-    else:
-        statement = select(SpendingAnalysis).where(
-            SpendingAnalysis.user_id == current_user.id
-        ).order_by(SpendingAnalysis.created_at.desc())
+    try:
+        result = await run_challenge_simulation_service(
+            user=current_user,
+            event_name=request.event_name,
+            target_amount=request.target_amount,
+            period_months=request.period,
+            current_amount=request.current_asset,
+            monthly_save_potential=request.monthly_save_potential,
+            session=session
+        )
         
-        analysis = session.exec(statement).first()
+        return result
         
-        if analysis:
-            save_potential = max(0, analysis.save_potential)
-        else:
-            save_potential = 0
-    
-    tool_result = simulate_event(
-        event_name=request.event_name,
-        target_amount=request.target_amount,
-        period_months=request.period,
-        current_amount=current_asset,
-        monthly_save_potential=save_potential,
-        auto_select=True  # 적합한 플랜만 생성 (plan_suitability 기반)
-    )
-    
-    if "error" in tool_result:
-        raise HTTPException(status_code=400, detail=tool_result["error"])
-    
-    return tool_result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"시뮬레이션 중 오류가 발생했습니다: {str(e)}"
+        )
 
 
-#  챌린지 생성 API
+#  챌린지 생성 API (AI Service 사용)
 @router.post("/", response_model=ChallengeResponse)
 async def create_challenge(
     request: CreateChallengeRequest,
@@ -208,86 +188,38 @@ async def create_challenge(
         (예상 기간이 아닌 사용자가 설정한 목표 기간)
     """
     
-    # 중복 생성 방지
-    # 조건: 같은 유저 + 같은 이벤트 + 같은 현재금액 + 같은 플랜 + 진행중
-    statement = select(Challenge).where(
-        Challenge.user_id == current_user.id,
-        Challenge.event_name == request.event_name,
-        Challenge.current_amount == request.current_amount,
-        Challenge.plan_type == request.plan_type,
-        Challenge.status == ChallengeStatus.IN_PROGRESS
-    )
-    existing_challenge = session.exec(statement).first()
-    
-    if existing_challenge:
-        return {
-            "id": existing_challenge.id,
-            "event_name": existing_challenge.event_name,
-            "plan_title": existing_challenge.plan_title,
-            "status": existing_challenge.status,
-            "start_date": existing_challenge.start_date,
-            "end_date": existing_challenge.end_date,
-            "message": f"이미 같은 조건으로 진행 중인 챌린지가 있습니다.",
-            "is_new": False
-        }
-    
-    analysis_statement = select(SpendingAnalysis).where(
-        SpendingAnalysis.user_id == current_user.id
-    ).order_by(SpendingAnalysis.created_at.desc())
-    latest_analysis = session.exec(analysis_statement).first()
-    analysis_id = latest_analysis.id if latest_analysis else None
-    
-    today = date.today()
-    end_date = today + relativedelta(months=request.period_months)
-    
-    new_challenge = Challenge(
-        user_id=current_user.id,
-        spending_analysis_id=analysis_id,
-        
-        # 목표 정보
-        event_name=request.event_name,
-        current_amount=request.current_amount,
-        target_amount=request.target_amount,
-        shortfall_amount=request.target_amount - request.current_amount,
-        period_months=request.period_months,
-        
-        # 플랜 정보
-        plan_type=request.plan_type,
-        plan_title=request.plan_title,
-        description=request.description,
-        
-        monthly_required=request.monthly_required,
-        monthly_shortfall=request.monthly_shortfall,
-        final_estimated_asset=request.final_estimated_asset,
-        expected_period=request.expected_period,
-        
-        plan_detail=request.plan_detail,
-        
-        # 상태 및 날짜
-        status=ChallengeStatus.IN_PROGRESS,
-        start_date=today,
-        end_date=end_date  # 목표 기간 기준
-    )
-    
     try:
-        session.add(new_challenge)
-        session.commit()
-        session.refresh(new_challenge)
-        
-        return {
-            "id": new_challenge.id,
-            "event_name": new_challenge.event_name,
-            "plan_title": new_challenge.plan_title,
-            "status": new_challenge.status,
-            "start_date": new_challenge.start_date,
-            "end_date": new_challenge.end_date,
-            "message": f"'{new_challenge.event_name}' 챌린지가 시작되었습니다!",
-            "is_new": True
+        # 플랜 데이터 변환 (Request → Dict)
+        selected_plan = {
+            "plan_type": request.plan_type.value,
+            "plan_title": request.plan_title,
+            "description": request.description,
+            "monthly_required": request.monthly_required,
+            "monthly_shortfall": request.monthly_shortfall,
+            "final_estimated_asset": request.final_estimated_asset,
+            "expected_period": request.expected_period,
+            "plan_detail": request.plan_detail
         }
         
+        result = await create_challenge_with_plan(
+            user=current_user,
+            event_name=request.event_name,
+            target_amount=request.target_amount,
+            period_months=request.period_months,
+            current_amount=request.current_amount,
+            selected_plan=selected_plan,
+            session=session
+        )
+        
+        return result
+        
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=f"챌린지 생성 실패: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"챌린지 생성 중 오류가 발생했습니다: {str(e)}"
+        )
 
 
 #  내 챌린지 목록 조회 API
@@ -381,6 +313,7 @@ async def update_challenge_status(
         raise HTTPException(status_code=404, detail="챌린지를 찾을 수 없습니다.")
     
     challenge.status = new_status
+    challenge.updated_at = datetime.now()
     
     try:
         session.add(challenge)
@@ -389,8 +322,8 @@ async def update_challenge_status(
         
         return {
             "id": challenge.id,
-            "status": challenge.status,
-            "message": f"챌린지 상태가 '{new_status}'로 변경되었습니다."
+            "status": challenge.status.value,
+            "message": f"챌린지 상태가 '{new_status.value}'로 변경되었습니다."
         }
         
     except Exception as e:
