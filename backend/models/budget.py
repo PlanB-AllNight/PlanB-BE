@@ -31,8 +31,8 @@ class BudgetAnalysis(SQLModel, table=True):
 # 카테고리별 예산 상세
 class CategoryBudget(BaseModel):
     category: str
-    current: int
-    budget: int
+    analyzed_amount: int
+    recommended_amount: int
     status: str  # 과소비/적정/여유
 
 # 요약 정보 (상단 카드)
