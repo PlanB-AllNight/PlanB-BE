@@ -8,7 +8,7 @@ from backend.models.challenge import Challenge, ChallengeStatus
 from backend.models.analyze_spending import SpendingAnalysis, SpendingCategoryStats
 from backend.tools.analyze_spending import analyze_spending
 
-from backend.ai.spending.generate_ai_analysis import generate_ai_comprehensive_analysis
+from backend.ai.services.spending_ai_service import generate_ai_comprehensive_analysis
 
 # ========================================
 # 챌린지 관련 함수
