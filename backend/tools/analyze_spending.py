@@ -6,7 +6,8 @@ import calendar
 from typing import Dict, List, Any, Optional
 
 # 데이터 경로
-DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/mydata.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_DIR, "../data/mydata.json")
 
 # 카테고리 매핑
 CATEGORY_MAP = {
@@ -32,15 +33,21 @@ OVERSPEND_THRESHOLDS = {
     "취미/여가": 15,
 }
 
-# 데모 날짜 (테스트용)
-DEMO_DATE = datetime(2024, 10, 25)
 
-
-def analyze_spending(
-    month: Optional[str] = None,
-    reference_date: Optional[str] = None,
-    use_demo_mode: bool = True  # 기본값: 데모 모드
-) -> Dict[str, Any]:
+def analyze_spending(month: Optional[str] = None) -> Dict[str, Any]:
+    """
+    소비 분석 실행
+    
+    Args:
+        month: 분석할 월 (선택)
+            - "10월" 또는 "2024-10" 형태
+            - None: 자동으로 최신 달 분석
+    
+    핵심 로직:
+        1. month 지정 시 → 해당 월 데이터 필터링
+        2. month 없을 시 → mydata 최신 날짜의 달로 자동 결정
+        3. analysis_date → 필터링된 데이터의 최신 날짜
+    """
     
     try:
         if not os.path.exists(DATA_PATH):
@@ -48,50 +55,54 @@ def analyze_spending(
         
         df = pd.read_json(DATA_PATH)
         df['date'] = pd.to_datetime(df['date'])
-        
-        if use_demo_mode:
-            now = DEMO_DATE
-        elif reference_date:
-            try:
-                now = datetime.strptime(reference_date, "%Y-%m-%d")
-            except ValueError:
-                return {"error": "reference_date 형식 오류 (yyyy-mm-dd)"}
-        else:
-            # 실제 배포: mydata의 최신 날짜 사용
-            dates = df['date'].tolist()
-            now = max(dates) if dates else datetime.now()
-        
-        current_year = now.year
-        current_month = now.month
-        current_day = now.day
-        
-        target_year = current_year
-        target_month = current_month
+
+        if df.empty:
+            return {"error": "데이터가 없습니다."}
         
         if month:
             if "월" in month:
                 nums = [int(s) for s in month.replace("월", "") if s.isdigit()]
                 if nums:
                     target_month = int(''.join(map(str, nums)))
+                    latest_date = df['date'].max()
+                    target_year = latest_date.year
             elif "-" in month:
                 parts = month.split("-")
                 if len(parts) == 2:
                     target_year = int(parts[0])
                     target_month = int(parts[1])
-        
-        df = df[(df['date'].dt.year == target_year) & (df['date'].dt.month == target_month)]
-        
-        if df.empty:
+            else:
+                return {"error": "month 형식 오류 (예: '10월' 또는 '2024-10')"}
+        else:
+            latest_date = df['date'].max()
+            target_year = latest_date.year
+            target_month = latest_date.month
+
+        df_month = df[
+            (df['date'].dt.year == target_year) & 
+            (df['date'].dt.month == target_month)
+        ]
+
+        if df_month.empty:
             return {
                 "error": f"{target_year}년 {target_month}월 데이터가 없습니다.",
                 "suggestion": "다른 월을 선택하거나 데이터를 업로드해주세요."
             }
         
-        df['display_category'] = df['category'].map(CATEGORY_MAP).fillna("기타")
-        
+        analysis_date = df_month['date'].max()
+        analysis_date_str = analysis_date.strftime("%Y-%m-%d")
+
+        current_date = datetime.now()
+        is_current_month = (
+            target_year == current_date.year and 
+            target_month == current_date.month
+        )
+
+        df_month['display_category'] = df_month['category'].map(CATEGORY_MAP).fillna("기타")
+                
         # 수입/지출/저축 분리
-        income_df = df[df['type'] == '입금']
-        expense_df = df[df['type'] == '출금']
+        income_df = df_month[df_month['type'] == '입금']
+        expense_df = df_month[df_month['type'] == '출금']
         
         # 저축/투자는 소비 통계에서 제외 (자산 이동)
         spending_df = expense_df[expense_df['display_category'] != '저축/투자']
@@ -105,7 +116,6 @@ def analyze_spending(
         save_potential = total_income - total_spent
         
         # 예상 지출액 계산
-        is_current_month = (target_year == current_year and target_month == current_month)
         daily_average = 0
         projected_total = total_spent
         days_passed = 0
@@ -113,8 +123,8 @@ def analyze_spending(
         
         if is_current_month and total_spent > 0:
             _, last_day = calendar.monthrange(target_year, target_month)
-            days_passed = current_day
-            days_remaining = max(0, last_day - current_day)
+            days_passed = current_date.day
+            days_remaining = max(0, last_day - current_date.day)
             
             if days_passed > 0:
                 daily_average = int(total_spent / days_passed)
@@ -223,7 +233,7 @@ def analyze_spending(
         return {
             # SpendingAnalysis
             "month": f"{target_year}-{target_month:02d}",
-            "analysis_date": now.strftime("%Y-%m-%d"),
+            "analysis_date": analysis_date_str,
             "total_income": total_income,
             "total_spent": total_spent,
             "total_saved": total_saved,
@@ -251,29 +261,92 @@ def analyze_spending(
     except Exception as e:
         return {"error": f"분석 중 오류 발생: {str(e)}"}
 
+def get_current_asset(user_id: int) -> int:
+    """
+    사용자의 현재 보유 자산(최신 잔액)을 조회합니다.
+    
+    TODO:
+        현재는 공용 mydata.json 사용
+        실제 서비스에서는 user_id별 파일 경로 분리 필요
+        예: f"backend/data/mydata_{user_id}.json"
+    """
+    try:
+        if not os.path.exists(DATA_PATH):
+            return 0
+            
+        df = pd.read_json(DATA_PATH)
+        
+        if not df.empty:
+            df['dt'] = pd.to_datetime(df['date'].astype(str) + ' ' + df['time'].astype(str))
+            df = df.sort_values(by='dt')
+            
+            last_balance = df.iloc[-1]['balance']
+            return int(last_balance)
+            
+        return 0
+        
+    except Exception as e:
+        print(f"[User {user_id}] 자산 조회 실패: {e}")
+        return 0
+
+def get_latest_mydata_date(user_id: int) -> Optional[str]:
+    try:
+        if not os.path.exists(DATA_PATH):
+            return None
+            
+        df = pd.read_json(DATA_PATH)
+        
+        if df.empty:
+            return None
+            
+        df['dt'] = pd.to_datetime(df['date'].astype(str) + ' ' + df['time'].astype(str))
+        df = df.sort_values(by='dt')
+        
+        latest_date = df.iloc[-1]['date']
+
+        if isinstance(latest_date, (pd.Timestamp, datetime)):
+            return latest_date.strftime("%Y-%m-%d")
+        
+        return str(latest_date)
+        
+    except Exception as e:
+        print(f"mydata 날짜 조회 실패: {e}")
+        return None
+
 
 # 테스트용 함수 (기존 함수명 호환)
 def analyze_spending_logic(month: str = None):
     """
     기존 코드 호환용 래퍼 함수
     """
-    result = analyze_spending(month=month, use_demo_mode=True)
+    result = analyze_spending(month=month)
     return json.dumps(result, ensure_ascii=False)
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("Tool 1 최종 테스트 (10월 25일 기준)")
+    print("소비분석 Tool")
     print("=" * 60)
     
-    result = analyze_spending(month="10월", use_demo_mode=True)
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    # 테스트 1: 10월 분석 (11월 데이터도 있다고 가정)
+    print("\n[테스트 1] 10월 분석")
+    result1 = analyze_spending(month="10월")
+    if "error" not in result1:
+        print(f"  month: {result1['month']}")
+        print(f"  analysis_date: {result1['analysis_date']}")
+        print(f"  → 10월 데이터 중 마지막 날짜")
+    else:
+        print(f"  오류: {result1['error']}")
+
+    # 테스트 2: 자동 분석 (최신 달)
+    print("\n[테스트 2] 자동 분석 (month 지정 안 함)")
+    result2 = analyze_spending()
+    if "error" not in result2:
+        print(f"  month: {result2['month']}")
+        print(f"  analysis_date: {result2['analysis_date']}")
+        print(f"  → mydata 최신 날짜의 달 + 최신 날짜")
+    else:
+        print(f"  오류: {result2['error']}")
     
-    print("\n" + "=" * 60)
-    print("DB 저장용 필드 확인")
-    print("=" * 60)
-    print(f"month: {result['month']}")
-    print(f"analysis_date: {result['analysis_date']}")
-    print(f"insights 타입: {type(result['insights'])}")
-    print(f"suggestions 타입: {type(result['suggestions'])}")
-    print(f"chart_data 개수: {len(result['chart_data'])}")
+    print("\n" + "=" * 80)
+    print("테스트 완료!")
