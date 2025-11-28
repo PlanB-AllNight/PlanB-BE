@@ -3,17 +3,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import create_db_and_tables
+from backend.data.insert_support_info import insert_support_info
 
 # DB 테이블 생성용
-from backend.models import user, analyze_spending, challenge, budget
+from backend.models import user, analyze_spending, challenge, budget, support
 
 # API 라우터 임포트
-from backend.api import user, analyze, budget
+from backend.api import user, analyze, budget, support
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
     print("DB 테이블 생성 완료!")
+    insert_support_info()
     yield
 
 app = FastAPI(
