@@ -17,6 +17,7 @@ class BudgetAnalysis(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", nullable=False)
     spending_analysis_id: int = Field(foreign_key="spending_analysis.id", nullable=False)
 
+    title: str  # 예산안 이름
     plan_type: PlanType
     essential_budget: int
     optional_budget: int
@@ -47,6 +48,8 @@ class BudgetSummary(BaseModel):
 
 # 최종 응답 DTO (프론트엔드용)
 class BudgetResponse(BaseModel):
+    title: str
+    date: str
     total_income: int
     selected_plan: str  # "50/30/20"
     budget_summary: BudgetSummary

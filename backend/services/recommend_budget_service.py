@@ -37,11 +37,12 @@ def create_insight_prompt(
 
     prompt = f"""
 # 역할
-당신은 대학생을 위한 개인 금융 설계 전문가입니다.
+당신은 대학생을 위한 개인 금융 설계 전문가이자 브랜딩 카피라이터입니다.
 
 이번 예산안은 이미 서버에서 확정되었으며, 
 당신의 역할은 조정이 필요했던 경우에만(필수 지출 cap을 맞추지 못한 경우) 
 **조정이 왜 필요한지 + 조정 방향 제안 + 기대 효과**를 요약하는 것입니다.
+그리고 이 예산안의 특징이 잘 드러나는 제목(title)을 만듭니다.
 
 # 핵심 규칙 (반드시 지켜야 함)
 1) Insight는 총 3개 문장만 기본 생성한다.
@@ -70,7 +71,6 @@ def create_insight_prompt(
    - 부드럽고 설득력 있는 문장
    - 비난 금지, 대안 중심
    - cap, needs/wants 같은 단어 대신 “필수 지출 / 선택 지출 / 예산 목표”를 사용
-
 
 ---
 
@@ -137,6 +137,13 @@ def create_insight_prompt(
     2) 사용자가 시도해볼 수 있는 개선 조언 (구독 점검, 식비 구조 조정 등 실천 가능 조언)
 - cap이라는 표현은 사용하지 않고 “필수 지출 한도”, “예산 목표” 등을 사용합니다.
 
+## 6. 예산안 제목 - 필수
+- 10자 이하(약 5~7자)의 1줄로 생성합니다.
+- title은 예산안의 핵심 특징을 한 문장으로 압축하여 '대학생이 좋아하는 감성'으로 만듭니다.
+   - 예: “10월 밸런스 되찾기”, “과소비에서 살아남기”, “학기 중 소비관리 리부트”
+   - 반드시 ‘~플랜’, ‘~예산안’, ‘~가이드’ 등으로 끝나도록 할 것.
+- 대학생 톤이어야 하며, 진지하되 부담스럽지 않고 ‘실용+공감’ 스타일로 작성합니다.
+
 ---
 
 # 용어 규칙 (중요)
@@ -158,7 +165,8 @@ def create_insight_prompt(
     "expected_effect": "예상 효과 1줄 (Cap 달성 포함)",
     "extra_suggestion": "예비비이 있을 때만 나타나는 문장 (없으면 null)",
     "adjustment_info": "needs의 cap을 넘어섰을 때만 나타나는 문장 (아니면 Null)"
-  }}
+  }},
+  "title": "제목"
 }}
 ```
     
@@ -201,7 +209,9 @@ def generate_ai_insight(baseline):
     )
 
     ai_text = response.choices[0].message.content
-    return json.loads(ai_text)["ai_insight"]
+    parsed = json.loads(ai_text)
+
+    return parsed
 
 
 # BudgetAnalysis 테이블에 저장할 데이터 변환
@@ -274,8 +284,10 @@ async def run_budget_recommendation_service(
     )
 
     # 3. 최종 예산안 기준으로 Insight 생성
-    ai_insight = generate_ai_insight(baseline)
-    insight = ai_insight
+    raw_output = generate_ai_insight(baseline)
+    insight = raw_output["ai_insight"]
+    title = raw_output["title"]
+
     insight["sub_text"] = normalize_terms(insight["sub_text"])
     insight["main_suggestion"] = normalize_terms(insight["main_suggestion"])
     insight["expected_effect"] = normalize_terms(insight["expected_effect"])
@@ -284,19 +296,22 @@ async def run_budget_recommendation_service(
     if insight.get("adjustment_info"):
         insight["adjustment_info"] = normalize_terms(insight["adjustment_info"])
 
-    # 6. 최종 결과 조합
     ai_output = {
         "categories": baseline["recommended_budget"],
-        "ai_insight": insight
+        "ai_insight": insight,
+        "title": title
     }
 
     # 7. BudgetAnalysis 저장 형태로 변환
     final_data = convert_to_budget_analysis_format(baseline, ai_output)
 
+    created_at = datetime.now()
+
     # 8. DB 저장
     db_obj = BudgetAnalysis(
         user_id=user.id,
         spending_analysis_id=spending_analysis_id,
+        title=title,
         plan_type=selected_plan,
 
         essential_budget=final_data["essential_budget"],
@@ -306,7 +321,7 @@ async def run_budget_recommendation_service(
         category_proposals=final_data["category_proposals"],
         ai_proposal=final_data["ai_proposal"],
 
-        created_at=datetime.now()
+        created_at=created_at
     )
 
     session.add(db_obj)
@@ -316,6 +331,8 @@ async def run_budget_recommendation_service(
     print(f"🎉 BudgetAnalysis 저장 완료 (ID: {db_obj.id})")
 
     response = BudgetResponse(
+        title=title,
+        date=created_at.strftime("%Y-%m"),
         total_income=baseline["total_income"],
         selected_plan=baseline["selected_plan"],
         budget_summary=BudgetSummary(
