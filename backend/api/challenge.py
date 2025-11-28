@@ -208,6 +208,7 @@ async def create_challenge(
             period_months=request.period_months,
             current_amount=request.current_amount,
             selected_plan=selected_plan,
+            challenge_name=request.challenge_name,
             session=session
         )
         

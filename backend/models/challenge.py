@@ -27,6 +27,7 @@ class Challenge(SQLModel, table=True):
         foreign_key="spending_analysis.id",
         description="연결된 소비분석 ID (챌린지 생성 시점의 최신 분석)"
     )
+    challenge_name: str = Field(description="챌린지 이름")
     
     # 목표 정보
     event_name: str = Field(description="이벤트 이름 (교환학생, 노트북 구매 등)")
@@ -127,6 +128,8 @@ class CreateChallengeRequest(BaseModel):
     target_amount: int
     period_months: int
     current_amount: int
+
+    challenge_name: Optional[str] = None
     
     # 선택한 플랜 정보
     plan_type: PlanType

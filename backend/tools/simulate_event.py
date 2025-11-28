@@ -14,16 +14,16 @@ KOSCOM_STO_PRODUCTS = [
     {
         "id": "STO_001",
         "name": "A음악저작권 STO",
-        "annual_return": 0.07,  # 연 7%
+        "annual_return": 0.07,
         "min_investment": 100000,
         "risk_level": "중위험",
         "description": "인기 K-POP 저작권 수익 배당",
-        "recommended_period": 12  # 권장 투자 기간(개월)
+        "recommended_period": 12
     },
     {
         "id": "STO_002", 
         "name": "B부동산 STO",
-        "annual_return": 0.05,  # 연 5%
+        "annual_return": 0.05,
         "min_investment": 500000,
         "risk_level": "저위험",
         "description": "안정적인 오피스텔 임대 수익",
@@ -95,68 +95,13 @@ def calculate_compound_interest(
     return int(future_principal + future_deposits)
 
 
-# 역산 로직
-def calculate_monthly_required(
-    target_amount: int,
-    current_amount: int,
-    months: int,
-    annual_rate: float = 0.0
-) -> int:
-    """
-    목표 달성을 위한 월 저축액 계산
-    
-    Args:
-        target_amount: 목표 금액
-        current_amount: 현재 보유 금액
-        months: 목표 기간(개월)
-        annual_rate: 연 이율 (투자 시)
-    
-    Returns:
-        필요한 월 저축액
-    """
-    if months <= 0:
-        return max(0, target_amount - current_amount)
-    
-    shortfall = target_amount - current_amount
-    
-    if shortfall <= 0:
-        return 0
-    
-    if annual_rate == 0:
-        # 단순 저축
-        return int(shortfall / months)
-    else:
-        # 복리 적용 시 (역계산)
-        monthly_rate = annual_rate / 12
-        
-        # 현재 금액의 미래 가치
-        future_current = current_amount * ((1 + monthly_rate) ** months)
-        remaining = target_amount - future_current
-
-        if remaining <= 0:
-            return 0
-        
-        # 필요한 월 저축액 (적립식 연금 역계산)
-        if monthly_rate > 0:
-            monthly_required = remaining / (((1 + monthly_rate) ** months - 1) / monthly_rate)
-        else:
-            monthly_required = remaining / months
-        
-        return max(0, int(monthly_required))
-
-
 def calculate_achievement_months(
     target_amount: int,
     current_amount: int,
     monthly_deposit: int,
     annual_rate: float = 0.0
 ) -> int:
-    """
-    목표 달성까지 필요한 개월 수 계산
-    
-    Returns:
-        필요 개월 수 (-1: 달성 불가)
-    """
+    """목표 달성까지 필요한 개월 수 계산"""
     if monthly_deposit <= 0:
         return -1
     
@@ -165,11 +110,10 @@ def calculate_achievement_months(
         return 0
     
     if annual_rate == 0:
-        # 단순 계산
-        return int(shortfall / monthly_deposit) + 1
+        return int(shortfall / monthly_deposit) + (1 if shortfall % monthly_deposit > 0 else 0)
     else:
-        # 복리 적용 시 (이진 탐색으로 근사)
-        for month in range(1, 600):  # 최대 50년
+        # 복리 적용 시 (이진 탐색)
+        for month in range(1, 600):
             future_value = calculate_compound_interest(
                 current_amount, monthly_deposit, annual_rate, month
             )
@@ -177,31 +121,20 @@ def calculate_achievement_months(
                 return month
         return -1
 
+
 def select_best_sto_product(
     target_amount: int,
     period_months: int,
     current_amount: int
 ) -> Dict[str, Any]:
-    """
-    사용자 상황에 가장 적합한 STO 상품 선택
-    
-    선택 기준:
-    1. 최소 투자금액 조건 만족
-    2. 권장 기간과 사용자 기간 비교
-    3. 수익률 우선
-    """
+    """사용자 상황에 가장 적합한 STO 상품 선택"""
     suitable_products = []
     
     for sto in KOSCOM_STO_PRODUCTS:
         if current_amount >= sto["min_investment"]:
-            # 기간 적합도 점수 (권장 기간과 차이가 적을수록 높음)
             period_diff = abs(sto["recommended_period"] - period_months)
             period_score = max(0, 100 - (period_diff * 2))
-            
-            # 수익률 점수
             return_score = sto["annual_return"] * 1000
-            
-            # 종합 점수
             total_score = period_score + return_score
             
             suitable_products.append({
@@ -210,52 +143,40 @@ def select_best_sto_product(
             })
     
     if suitable_products:
-        # 점수 높은 순 정렬 후 1위 반환
         suitable_products.sort(key=lambda x: x["score"], reverse=True)
         return suitable_products[0]
     else:
-        # 기본값 (조건 불만족 시)
         return KOSCOM_STO_PRODUCTS[0]
+
 
 def find_suitable_support(
     monthly_needed: int,
     event_name: str = ""
 ) -> Optional[Dict[str, Any]]:
-    """
-    필요 금액에 적합한 지원금 찾기
-    
-    Returns:
-        적합한 지원금 정보 또는 None
-    """
+    """필요 금액에 적합한 지원금 찾기"""
     suitable_supports = []
     
     for support in MOCK_SUPPORT_INFO:
-        # 월 환산
         if support["period"] == "월":
             monthly_amount = support["amount"]
         elif support["period"] == "학기당":
-            monthly_amount = support["amount"] / 4  # 4개월로 환산
+            monthly_amount = support["amount"] / 4
         else:
             monthly_amount = 0
         
-        # 필요 금액 이상인 지원금만
-        if monthly_amount >= monthly_needed:
+        # 필요 금액의 50% 이상 충당 가능한 지원금
+        if monthly_amount >= monthly_needed * 0.5:
             suitable_supports.append({
                 **support,
                 "monthly_amount": int(monthly_amount)
             })
     
     if suitable_supports:
-        # 금액이 딱 맞는 순으로 정렬 (과도하게 많은 것 제외)
         suitable_supports.sort(key=lambda x: x["monthly_amount"])
         return suitable_supports[0]
     
     return None
 
-
-# ========================================
-#  헬퍼 함수 (AI Service용)
-# ========================================
 
 def analyze_situation(
     current_amount: int,
@@ -263,36 +184,17 @@ def analyze_situation(
     period_months: int,
     monthly_save_potential: int
 ) -> Dict[str, Any]:
-    """
-    사용자 상황 종합 분석
-    
-    AI가 이 결과를 보고 어떤 플랜을 생성할지 결정
-    
-    Returns:
-        {
-            "difficulty": "쉬움" | "보통" | "어려움" | "매우 어려움",
-            "shortfall_amount": 부족 금액,
-            "monthly_required": 필요 월 저축액,
-            "monthly_gap": 추가 필요액,
-            "gap_rate": 추가 필요 비율(%),
-            "recommended_plans": ["MAINTAIN", "FRUGAL", ...],
-            "investment_suitable": True/False,
-            "support_needed": True/False,
-            "timeline_pressure": "높음" | "보통" | "낮음"
-        }
-    """
+    """사용자 상황 종합 분석"""
     
     shortfall = target_amount - current_amount
     
-    # 목표 달성에 필요한 월 저축액 (단순 저축)
-    monthly_required = calculate_monthly_required(
-        target_amount, current_amount, period_months, 0.0
-    )
+    # 목표 달성에 필요한 월 저축액
+    monthly_required = int(shortfall / period_months) if period_months > 0 else shortfall
     
     # 현재 저축액과의 차이
     monthly_gap = monthly_required - monthly_save_potential
     
-    # 추가 필요 비율 (%)
+    # 추가 필요 비율
     if monthly_save_potential > 0:
         gap_rate = (monthly_gap / monthly_save_potential) * 100
     else:
@@ -301,7 +203,7 @@ def analyze_situation(
     # 난이도 판단
     if monthly_gap <= 0:
         difficulty = "쉬움"
-        priority_plans = ["MAINTAIN"]  # 이름 변경: 우선순위일 뿐
+        priority_plans = ["MAINTAIN"]
     elif gap_rate <= 30:
         difficulty = "보통"
         priority_plans = ["FRUGAL"]
@@ -312,20 +214,21 @@ def analyze_situation(
         difficulty = "매우 어려움"
         priority_plans = ["SUPPORT", "INVESTMENT"]
     
-    # 투자 적합성 판단
+    # 투자 적합성
     investment_suitable = (
-        target_amount >= 2000000 and  # 200만원 이상
-        period_months >= 6 and        # 6개월 이상
-        current_amount >= 100000      # STO 최소 투자금액
+        target_amount >= 2000000 and
+        period_months >= 6 and
+        current_amount >= 100000
     )
 
-    # 각 플랜의 적합성 판단
+    # 각 플랜 적합성
     plan_suitability = {
-        "MAINTAIN": monthly_gap <= 0,  # 현재로도 달성 가능할 때만
-        "FRUGAL": gap_rate <= 100,     # 2배까지는 절약으로 가능
-        "SUPPORT": gap_rate > 30,      # 30% 이상 부족 시 유용
-        "INVESTMENT": investment_suitable and gap_rate > 20  # 투자 조건 + 20% 이상 부족
+        "MAINTAIN": monthly_gap <= 0,
+        "FRUGAL": gap_rate <= 100,
+        "SUPPORT": gap_rate > 30,
+        "INVESTMENT": investment_suitable and gap_rate > 20
     }
+    
     support_needed = (gap_rate > 50)
     
     if period_months <= 6:
@@ -349,9 +252,6 @@ def analyze_situation(
         "is_achievable_now": monthly_gap <= 0
     }
 
-# ========================================
-#  플랜 생성 함수들 (AI가 선택적으로 호출)
-# ========================================
 
 def generate_plan_maintain(
     current_amount: int,
@@ -361,58 +261,58 @@ def generate_plan_maintain(
 ) -> Dict[str, Any]:
     """
     Plan 0: 현상 유지 (Baseline)
-    
-    특징:
-    - 아무런 변화 없이 현재 저축액만 모음
-    - 다른 플랜들의 비교 기준점 (Baseline) 역할
-    
-    AI 판단 기준:
-    - 항상 생성 (비교 기준이므로)
-    - 단, 목표 달성 가능 시 추천
+    실제로 모이는 금액 계산 (목표와 다를 수 있음)
     """
     
-    final_amount = current_amount + (monthly_save_potential * period_months)
-    shortfall = target_amount - final_amount
+    # 실제 월 저축액 = 현재 저축 가능액
+    actual_monthly = monthly_save_potential
+    
+    # 실제로 모이는 금액
+    final_amount = current_amount + (actual_monthly * period_months)
+    
+    # 목표 대비 달성률
+    achievement_rate = (final_amount / target_amount * 100) if target_amount > 0 else 0
+    shortfall = max(0, target_amount - final_amount)
     
     # 실제 달성 기간
-    if shortfall > 0 and monthly_save_potential > 0:
+    if actual_monthly > 0 and shortfall > 0:
         expected_period = calculate_achievement_months(
-            target_amount, current_amount, monthly_save_potential
+            target_amount, current_amount, actual_monthly
         )
     else:
         expected_period = period_months
     
-    is_recommended = (shortfall <= 0)
+    is_recommended = (achievement_rate >= 100)
     
     tags = []
-    if is_recommended:
-        tags.extend(["달성 가능", "안정적"])
+    if achievement_rate >= 100:
+        tags.extend(["목표 달성", "추천"])
+    elif achievement_rate >= 80:
+        tags.extend([f"{int(achievement_rate)}% 달성", "거의 달성"])
     else:
-        tags.append("비추천")
+        tags.append(f"{int(achievement_rate)}% 달성")
         if shortfall > 0:
             tags.append(f"{shortfall:,}원 부족")
     
     return {
         "plan_type": "MAINTAIN",
         "plan_title": "현상 유지",
-        "description": (
-            f"현재 상태를 유지하면 {period_months}개월 뒤 {final_amount:,}원을 모을 수 있습니다. " +
-            (f"목표까지 {shortfall:,}원이 부족합니다." if shortfall > 0
-             else "목표를 달성할 수 있습니다!")
-        ),
-        "monthly_required": monthly_save_potential,
+        "description": f"현재 저축 속도 유지 시 {period_months}개월 후 {final_amount:,}원 예상 (목표의 {int(achievement_rate)}%)",
+        "monthly_required": actual_monthly,
         "monthly_shortfall": 0,
         "final_estimated_asset": final_amount,
         "expected_period": expected_period,
         "is_recommended": is_recommended,
         "tags": tags,
         "recommendation": (
-            "현재 저축 습관을 유지하시면 됩니다!" if is_recommended
-            else "현재 속도로는 목표 달성이 어렵습니다. 다른 전략이 필요합니다."
+            f"{period_months}개월 후 목표 달성 예상" if achievement_rate >= 100
+            else f"{expected_period}개월이면 목표 달성 가능" if expected_period > 0
+            else "추가 저축 전략이 필요합니다"
         ),
         "plan_detail": {
             "shortfall": shortfall,
-            "achievement_rate": int((final_amount / target_amount) * 100) if target_amount > 0 else 0
+            "achievement_rate": int(achievement_rate),
+            "variant_id": "maintain_baseline"
         }
     }
 
@@ -421,71 +321,77 @@ def generate_plan_frugal(
     current_amount: int,
     target_amount: int,
     period_months: int,
-    monthly_save_potential: int
+    monthly_save_potential: int,
+    overspent_category: str = "소비",
+    category_amount: int = 0
 ) -> Dict[str, Any]:
     """
-    Plan A: 초절약 플랜 (Frugal/Budgeting)
-    
-    특징:
-    - 투자나 추가 수입 없이 오직 절약만으로 목표 달성
-    - 예산 조정 Tool (recommend_budget) 연동 필수
-    
-    AI 판단 기준:
-    - 월 추가 필요액이 현재 저축액의 50% 이하 → 추천
-    - 50~100% → 보통 (도전적)
-    - 100% 이상 → 비추천 (비현실적)
+    Plan A: 초절약 플랜
+    실제로 절약 가능한 금액 기반 계산
     """
     
-    monthly_required = calculate_monthly_required(
-        target_amount, current_amount, period_months, 0.0
-    )
-    
-    monthly_shortfall = max(0, monthly_required - monthly_save_potential)
-    final_amount = target_amount
-    
-    # 추천 판단: 추가 필요액이 현재 저축액의 몇 %?
-    if monthly_save_potential > 0:
-        additional_rate = (monthly_shortfall / monthly_save_potential) * 100
+    # 1. 절약 가능 금액 추정
+    if category_amount > 0:
+        # 해당 카테고리의 20% 절약 가정
+        monthly_savings = int(category_amount * 0.2)
     else:
-        additional_rate = 999
+        # 보수적 추정: 현재 저축액의 20% 추가 (전체 소비의 일부 절약)
+        monthly_savings = int(monthly_save_potential * 0.2) if monthly_save_potential > 0 else 50000
     
-    is_recommended = (additional_rate <= 50)
+    # 2. 실제 월 저축액
+    actual_monthly = monthly_save_potential + monthly_savings
     
-    if additional_rate <= 20:
-        difficulty = "쉬움"
-        tags = ["추천", "현실적", "안전함"]
-    elif additional_rate <= 50:
-        difficulty = "보통"
-        tags = ["도전적", "안전함"]
+    # 3. 실제로 모이는 금액
+    final_estimated_asset = current_amount + (actual_monthly * period_months)
+    
+    # 4. 목표 대비 달성률
+    achievement_rate = (final_estimated_asset / target_amount * 100) if target_amount > 0 else 0
+    shortfall = max(0, target_amount - final_estimated_asset)
+    
+    # 5. 실제 달성 기간
+    if actual_monthly > 0:
+        expected_period = calculate_achievement_months(
+            target_amount, current_amount, actual_monthly
+        )
     else:
-        difficulty = "어려움"
-        tags = ["고난이도", "비추천"]
+        expected_period = -1
     
-    if monthly_shortfall > 0:
-        tags.append(f"월 +{monthly_shortfall:,}원")
+    # 6. 추천 판단 (80% 이상이면 추천)
+    is_recommended = (achievement_rate >= 50)
+    
+    tags = [f"월 {monthly_savings:,}원 절약"]
+    if achievement_rate >= 100:
+        tags.append("목표 달성")
+        tags.append("강력 추천")
+    elif achievement_rate >= 80:
+        tags.append("거의 달성")
+        tags.append("추천")
+    elif achievement_rate >= 50:
+        tags.append("절반 달성")
+        tags.append("추천")
+    else:
+        tags.append(f"{int(achievement_rate)}% 달성")
     
     return {
         "plan_type": "FRUGAL",
         "plan_title": "초절약 플랜",
-        "description": (
-            f"투자 없이 예산 조정만으로 목표를 달성합니다. "
-            f"월 {monthly_required:,}원을 저축하면 {period_months}개월 안에 달성 가능합니다."
-        ),
-        "monthly_required": monthly_required,
-        "monthly_shortfall": monthly_shortfall,
-        "final_estimated_asset": final_amount,
-        "expected_period": period_months,
+        "description": f"{overspent_category} 지출 20% 줄이면 월 {monthly_savings:,}원 절약",
+        "monthly_required": actual_monthly,
+        "monthly_shortfall": max(0, shortfall // period_months) if period_months > 0 else 0,
+        "final_estimated_asset": final_estimated_asset,
+        "expected_period": expected_period,
         "is_recommended": is_recommended,
         "tags": tags,
         "recommendation": (
-            "현재 저축액만으로도 충분합니다!" if monthly_shortfall == 0
-            else f"월 {monthly_shortfall:,}원을 추가로 저축해야 합니다. 예산을 조정해보세요."
+            f"{period_months}개월 후 {final_estimated_asset:,}원 예상 (목표의 {int(achievement_rate)}%)"
         ),
         "next_tool": "recommend_budget",
         "plan_detail": {
-            "additional_rate": round(additional_rate, 1),
-            "difficulty": difficulty,
-            "target_categories": ["카페/디저트", "사회/모임", "쇼핑/꾸미기"]
+            "monthly_savings": monthly_savings,
+            "achievement_rate": int(achievement_rate),
+            "shortfall": shortfall,
+            "target_categories": [overspent_category],
+            "variant_id": "frugal_all_categories"
         }
     }
 
@@ -498,59 +404,77 @@ def generate_plan_support(
     event_name: str
 ) -> Dict[str, Any]:
     """
-    Plan B: 수입 증대 플랜 (Support)
-    
-    특징:
-    - 현재 소비 패턴 유지
-    - 장학금/지원금으로 부족분 충당
-    - 금융 상담 Tool (get_support_info) 연동 필수
-    
-    AI 판단 기준:
-    - 적합한 지원금을 찾았을 때 → 추천
-    - 못 찾았을 때 → 비추천 (단, 상담봇 안내)
+    Plan B: 수입 증대 플랜
+    지원금으로 실제 가능한 금액 계산
     """
     
-    monthly_required = calculate_monthly_required(
-        target_amount, current_amount, period_months, 0.0
-    )
+    shortfall = target_amount - current_amount
+    monthly_needed = int(shortfall / period_months) if period_months > 0 else shortfall
+    monthly_gap = max(0, monthly_needed - monthly_save_potential)
     
-    monthly_shortfall = max(0, monthly_required - monthly_save_potential)
-    suitable_support = find_suitable_support(monthly_shortfall, event_name)
-    final_amount = target_amount
+    suitable_support = find_suitable_support(monthly_gap, event_name)
     
-    is_recommended = (suitable_support is not None)
+    if suitable_support:
+        # 지원금 받을 경우 실제 월 저축액
+        actual_monthly = monthly_save_potential + suitable_support["monthly_amount"]
+    else:
+        # 보수적 추정: 월 20만원 추가 수입 가정
+        actual_monthly = monthly_save_potential + 200000
+    
+    # 실제로 모이는 금액
+    final_estimated_asset = current_amount + (actual_monthly * period_months)
+    
+    # 목표 대비 달성률
+    achievement_rate = (final_estimated_asset / target_amount * 100) if target_amount > 0 else 0
+    shortfall_final = max(0, target_amount - final_estimated_asset)
+    
+    # 실제 달성 기간
+    if actual_monthly > 0:
+        expected_period = calculate_achievement_months(
+            target_amount, current_amount, actual_monthly
+        )
+    else:
+        expected_period = -1
+    
+    is_recommended = (suitable_support is not None and achievement_rate >= 80)
     
     tags = ["소비 유지"]
     if suitable_support:
-        tags.append("추천")
-        tags.append(suitable_support["name"])
+        tags.append(f"월 {suitable_support['monthly_amount']:,}원 추가")
+        if achievement_rate >= 100:
+            tags.append("목표 달성")
+            tags.append("추천")
+        elif achievement_rate >= 80:
+            tags.append("거의 달성")
+            tags.append("추천")
     else:
         tags.append("지원금 탐색 필요")
-        tags.append("AICC 상담 권장")
     
     return {
         "plan_type": "SUPPORT",
         "plan_title": "수입 증대 플랜",
         "description": (
-            f"현재 소비를 유지하면서 월 {monthly_shortfall:,}원의 추가 수입이 필요합니다. "
-            f"장학금이나 정부 지원금을 활용하세요."
+            f"{suitable_support['name']} 활용 시 월 {suitable_support['monthly_amount']:,}원 추가 수입"
+            if suitable_support
+            else "장학금이나 알바로 월 수입 증대 필요"
         ),
-        "monthly_required": monthly_required,
-        "monthly_shortfall": monthly_shortfall,
-        "final_estimated_asset": final_amount,
-        "expected_period": period_months,
+        "monthly_required": actual_monthly,
+        "monthly_shortfall": max(0, shortfall_final // period_months) if period_months > 0 else 0,
+        "final_estimated_asset": final_estimated_asset,
+        "expected_period": expected_period,
         "is_recommended": is_recommended,
         "tags": tags,
         "recommendation": (
-            f"'{suitable_support['name']}'을 신청하면 월 {suitable_support['monthly_amount']:,}원을 받을 수 있습니다!" 
-            if suitable_support
-            else "KOSCOM AICC 금융 상담봇으로 맞춤 지원금을 찾아보세요."
+            f"{period_months}개월 후 {final_estimated_asset:,}원 예상 (목표의 {int(achievement_rate)}%)"
         ),
         "support_info": suitable_support,
         "next_tool": "get_support_info",
         "plan_detail": {
             "support_found": suitable_support is not None,
-            "search_keywords": [event_name, "대학생", "청년", "장학금"] if event_name else ["대학생", "청년"]
+            "achievement_rate": int(achievement_rate),
+            "shortfall": shortfall_final,
+            "search_keywords": [event_name, "대학생", "청년", "장학금"] if event_name else ["대학생", "청년"],
+            "variant_id": "support_scholarship"
         }
     }
 
@@ -562,93 +486,95 @@ def generate_plan_investment(
     monthly_save_potential: int
 ) -> Dict[str, Any]:
     """
-    Plan C: KOSCOM 투자 플랜 (Investment)
-    
-    특징:
-    - KOSCOM STO/RA 상품 활용
-    - 복리 효과로 필요 저축액 감소
-    - 리스크 존재 (명시 필요)
-    
-    AI 판단 기준:
-    - 목표 금액 200만원 이상 + 기간 6개월 이상 → 추천 고려
-    - 소액 단기 목표 → 비추천 (수수료/변동성 불리)
-    - 투자 수익이 월 1만원 이상 절감 효과 → 추천
+    Plan C: KOSCOM 투자 플랜
+    투자 수익 포함한 실제 예상 금액 계산
     """
     
-    # 가장 적합한 STO 선택
     selected_sto = select_best_sto_product(
         target_amount, period_months, current_amount
     )
     
-    # 투자 수익 고려 월 저축액
-    monthly_required = calculate_monthly_required(
-        target_amount, current_amount, period_months,
-        selected_sto["annual_return"]
-    )
+    # 투자 시 필요한 월 저축액 (복리 역산)
+    shortfall = target_amount - current_amount
     
-    monthly_shortfall = max(0, monthly_required - monthly_save_potential)
+    # 단순 계산으로 추정
+    monthly_required = monthly_save_potential
     
-    # 최종 자산 (복리)
+    # 실제로 모이는 금액 (복리)
     final_amount = calculate_compound_interest(
         current_amount, monthly_required,
         selected_sto["annual_return"], period_months
     )
     
-    # 일반 저축 대비 이득
-    simple_monthly = calculate_monthly_required(
-        target_amount, current_amount, period_months, 0.0
-    )
-    monthly_saved = simple_monthly - monthly_required
+    # 목표 대비 달성률
+    achievement_rate = (final_amount / target_amount * 100) if target_amount > 0 else 0
+    shortfall_final = max(0, target_amount - final_amount)
     
-    # 투자 수익
+    # 일반 저축 대비 이득
     simple_total = current_amount + (monthly_required * period_months)
     investment_profit = final_amount - simple_total
     
-    # 절감 효율 (%)
-    if simple_monthly > 0:
-        efficiency = (monthly_saved / simple_monthly) * 100
+    # 절감 효율
+    simple_monthly_needed = int(shortfall / period_months) if period_months > 0 else shortfall
+    monthly_saved = max(0, simple_monthly_needed - monthly_required)
+    
+    if simple_monthly_needed > 0:
+        efficiency = (monthly_saved / simple_monthly_needed) * 100
     else:
         efficiency = 0
     
+    # 실제 달성 기간
+    if monthly_required > 0:
+        for month in range(1, 600):
+            future_value = calculate_compound_interest(
+                current_amount, monthly_required,
+                selected_sto["annual_return"], month
+            )
+            if future_value >= target_amount:
+                expected_period = month
+                break
+        else:
+            expected_period = -1
+    else:
+        expected_period = -1
+    
     # 추천 판단
     is_recommended = (
-        target_amount >= 2000000 and  # 200만원 이상
-        period_months >= 6 and        # 6개월 이상
-        efficiency >= 5               # 5% 이상 효율 (비율 기반)
+        target_amount >= 2000000 and
+        period_months >= 6 and
+        achievement_rate >= 80
     )
     
-    tags = ["고효율", f"연 {int(selected_sto['annual_return']*100)}%"]
-    if is_recommended:
-        tags.append("추천")
-        tags.append(f"월 {monthly_saved:,}원 절감")
+    tags = [f"연 {int(selected_sto['annual_return']*100)}%", selected_sto['risk_level']]
+    if achievement_rate >= 100:
+        tags.append("목표 달성")
+        if is_recommended:
+            tags.append("추천")
+    elif achievement_rate >= 80:
+        tags.append("거의 달성")
+        if is_recommended:
+            tags.append("추천")
     else:
-        if period_months < 6:
-            tags.append("단기 부적합")
-        else:
-            tags.append("신중 검토")
+        tags.append(f"{int(achievement_rate)}% 달성")
     
     risk_warnings = []
     if period_months < selected_sto["recommended_period"]:
-        risk_warnings.append(f"권장 기간({selected_sto['recommended_period']}개월)보다 짧아 변동성 위험 있음")
+        risk_warnings.append(f"권장 기간({selected_sto['recommended_period']}개월)보다 짧아 변동성 위험")
     if selected_sto["risk_level"] == "중위험":
-        risk_warnings.append("원금 손실 가능성 존재 (시장 상황에 따라 변동)")
+        risk_warnings.append("원금 손실 가능성 존재")
     
     return {
         "plan_type": "INVESTMENT",
         "plan_title": "투자 플랜",
-        "description": (
-            f"KOSCOM {selected_sto['name']}에 투자하면 "
-            f"일반 저축보다 월 {monthly_saved:,}원 덜 저축해도 됩니다."
-        ),
+        "description": f"{selected_sto['name']} 투자 시 {period_months}개월 후 {final_amount:,}원 예상",
         "monthly_required": monthly_required,
-        "monthly_shortfall": monthly_shortfall,
+        "monthly_shortfall": max(0, shortfall_final // period_months) if period_months > 0 else 0,
         "final_estimated_asset": final_amount,
-        "expected_period": period_months,
+        "expected_period": expected_period if expected_period > 0 else period_months,
         "is_recommended": is_recommended,
         "tags": tags,
         "recommendation": (
-            f"{period_months}개월 뒤 예상 투자 수익은 {investment_profit:,}원입니다. "
-            f"투자 효율은 {efficiency:.1f}%이지만, 리스크가 있으니 신중히 결정하세요."
+            f"예상 투자 수익 {investment_profit:,}원 (목표의 {int(achievement_rate)}%)"
         ),
         "sto_product": {
             "id": selected_sto["id"],
@@ -660,10 +586,13 @@ def generate_plan_investment(
         "investment_profit": investment_profit,
         "monthly_saved": monthly_saved,
         "plan_detail": {
-            "simple_monthly": simple_monthly,
+            "simple_monthly": simple_monthly_needed,
             "investment_monthly": monthly_required,
             "efficiency": round(efficiency, 1),
-            "risk_warnings": risk_warnings
+            "achievement_rate": int(achievement_rate),
+            "shortfall": shortfall_final,
+            "risk_warnings": risk_warnings,
+            "variant_id": "investment_music_copyright"
         }
     }
 
@@ -673,22 +602,19 @@ def generate_all_plans(
     target_amount: int,
     period_months: int,
     current_amount: int,
-    monthly_save_potential: int
+    monthly_save_potential: int,
+    overspent_category: str = "소비",
+    category_amount: int = 0
 ) -> List[Dict[str, Any]]:
-    """
-    모든 플랜 생성 (테스트용 또는 AI가 전체 옵션을 보고 싶을 때)
-    
-    Note:
-        실제 운영에서는 AI가 analyze_situation() 결과를 보고
-        필요한 generate_plan_xxx() 함수만 선택적으로 호출하는 것을 권장
-    """
+    """모든 플랜 생성"""
     
     return [
         generate_plan_maintain(
             current_amount, target_amount, period_months, monthly_save_potential
         ),
         generate_plan_frugal(
-            current_amount, target_amount, period_months, monthly_save_potential
+            current_amount, target_amount, period_months, monthly_save_potential,
+            overspent_category, category_amount
         ),
         generate_plan_support(
             current_amount, target_amount, period_months, monthly_save_potential, event_name
@@ -705,29 +631,13 @@ def simulate_event(
     period_months: int,
     current_amount: int,
     monthly_save_potential: int,
-    auto_select: bool = False
+    auto_select: bool = False,
+    overspent_category: str = "소비",
+    category_amount: int = 0
 ) -> Dict[str, Any]:
-    """
-    시뮬레이션 메인 함수
-    
-    Args:
-        event_name: 이벤트 이름
-        target_amount: 목표 금액
-        period_months: 목표 기간
-        current_amount: 현재 금액
-        monthly_save_potential: 월 저축 가능액
-        auto_select: True면 AI 대신 자동 선택 (테스트용)
-    
-    Returns:
-        시뮬레이션 결과
-    
-    Note:
-        실제 운영에서는 AI Service가 이 함수 대신
-        analyze_situation() + 개별 generate_plan_xxx()를 직접 호출
-    """
+    """시뮬레이션 메인 함수"""
     
     try:
-        # 입력 검증
         if target_amount <= 0:
             return {"error": "목표 금액은 0보다 커야 합니다."}
         
@@ -741,14 +651,14 @@ def simulate_event(
         
         # 플랜 생성
         if auto_select:
-            # 자동 선택 모드 (적합성 기반)
             plans = [generate_plan_maintain(
                 current_amount, target_amount, period_months, monthly_save_potential
             )]
 
             if situation["plan_suitability"]["FRUGAL"]:
                 plans.append(generate_plan_frugal(
-                    current_amount, target_amount, period_months, monthly_save_potential
+                    current_amount, target_amount, period_months, monthly_save_potential,
+                    overspent_category, category_amount
                 ))
             
             if situation["plan_suitability"]["SUPPORT"]:
@@ -762,10 +672,10 @@ def simulate_event(
                     current_amount, target_amount, period_months, monthly_save_potential
                 ))
         else:
-            # 전체 생성
             plans = generate_all_plans(
                 event_name, target_amount, period_months,
-                current_amount, monthly_save_potential
+                current_amount, monthly_save_potential,
+                overspent_category, category_amount
             )
         
         return {
@@ -788,66 +698,37 @@ def simulate_event(
         return {"error": f"시뮬레이션 중 오류: {str(e)}"}
 
 
-# ========================================
-#  테스트 코드
-# ========================================
-
 if __name__ == "__main__":
     print("=" * 80)
-    print("시뮬레이션 Tool - 최종 완성 버전 테스트")
+    print("현실적 시뮬레이션 Tool - 테스트")
     print("=" * 80)
     
-    tests = [
-        {
-            "name": "대규모 목표 (교환학생 800만원)",
-            "params": {
-                "event_name": "교환학생",
-                "target_amount": 8000000,
-                "period_months": 12,
-                "current_amount": 500000,
-                "monthly_save_potential": 300000,
-                "auto_select": True
-            }
-        },
-        {
-            "name": "소액 단기 (노트북 250만원)",
-            "params": {
-                "event_name": "노트북 구매",
-                "target_amount": 2500000,
-                "period_months": 3,
-                "current_amount": 1000000,
-                "monthly_save_potential": 400000,
-                "auto_select": True
-            }
-        }
-    ]
+    test = {
+        "event_name": "유럽 여행",
+        "target_amount": 5000000,
+        "period_months": 12,
+        "current_amount": 0,
+        "monthly_save_potential": 300000,
+        "overspent_category": "카페/디저트",
+        "category_amount": 150000
+    }
     
-    for test in tests:
-        print(f"\n{'='*80}")
-        print(f"[테스트] {test['name']}")
-        print(f"{'='*80}")
-        
-        result = simulate_event(**test["params"])
-        
-        if "error" in result:
-            print(f"오류: {result['error']}")
-            continue
-        
+    result = simulate_event(**test, auto_select=False)
+    
+    if "error" not in result:
         sit = result["situation_analysis"]
         print(f"\n상황 분석:")
-        print(f"  - 난이도: {sit['difficulty']}")
-        print(f"  - 부족액: {sit['shortfall_amount']:,}원")
-        print(f"  - 필요 월 저축: {sit['monthly_required']:,}원")
-        print(f"  - 추가 필요: {sit['monthly_gap']:,}원 ({sit['gap_rate']:.1f}%)")
-        print(f"  - AI 추천: {', '.join(sit['priority_plans'])}")
+        print(f"  난이도: {sit['difficulty']}")
+        print(f"  부족액: {sit['shortfall_amount']:,}원")
+        print(f"  필요 월 저축: {sit['monthly_required']:,}원")
         
-        print(f"\n📋 생성된 플랜: {result['meta']['plans_count']}개")
+        print(f"\n생성된 플랜: {result['meta']['plans_count']}개")
         for i, plan in enumerate(result['plans'], 1):
-            status = "추천" if plan['is_recommended'] else "비추천"
-            print(f"  [{i}] {plan['plan_title']} {status}")
-            print(f"      태그: {', '.join(plan['tags'])}")
+            status = "✅ 추천" if plan['is_recommended'] else "❌ 비추천"
+            print(f"\n  [{i}] {plan['plan_title']} {status}")
             print(f"      월 저축: {plan['monthly_required']:,}원")
-    
-    print(f"\n{'='*80}")
-    print("테스트 완료!")
-    print(f"{'='*80}")
+            print(f"      최종 예상: {plan['final_estimated_asset']:,}원")
+            print(f"      달성률: {plan['plan_detail']['achievement_rate']}%")
+            print(f"      예상 기간: {plan['expected_period']}개월")
+    else:
+        print(f"오류: {result['error']}")

@@ -9,7 +9,7 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
 from backend.models.user import User
-from backend.models.analyze_spending import SpendingAnalysis
+from backend.models.analyze_spending import SpendingAnalysis, SpendingCategoryStats
 from backend.models.challenge import Challenge, ChallengeStatus, PlanType
 from backend.tools.simulate_event import (
     analyze_situation,
@@ -44,7 +44,8 @@ def generate_comprehensive_plans(
     current_amount: int,
     monthly_save_potential: int,
     user_name: str,
-    latest_analysis: Optional[SpendingAnalysis] = None
+    latest_analysis: Optional[SpendingAnalysis] = None,
+    session: Optional[Session] = None
 ) -> Dict[str, Any]:
     """
     플랜 생성 전략:
@@ -61,221 +62,184 @@ def generate_comprehensive_plans(
     - next_tool: 다음에 실행할 Tool (예: "recommend_budget")
     - 이 정보들은 프론트엔드에서 상세 정보 표시에 필요함
     """
-    #  Tool의 정밀 상황 분석
+    #  상황 분석
     situation = analyze_situation(
         current_amount=current_amount,
         target_amount=target_amount,
         period_months=period_months,
         monthly_save_potential=monthly_save_potential
     )
+
+    #  기본 플랜 리스트 생성
+    base_plans_list = []
+
+    # [MAINTAIN] 현상 유지 플랜 (항상 포함)
+    base_plans_list.append(generate_plan_maintain(
+        current_amount, target_amount, period_months, monthly_save_potential
+    ))
+
+    # [FRUGAL] 데이터 기반 절약 플랜 생성
+    frugal_candidates = []
     
-    base_plans = {
-        "MAINTAIN": generate_plan_maintain(
-            current_amount, target_amount, period_months, monthly_save_potential
-        ),
-        "FRUGAL": generate_plan_frugal(
-            current_amount, target_amount, period_months, monthly_save_potential
-        ),
-        "SUPPORT": generate_plan_support(
-            current_amount, target_amount, period_months, 
-            monthly_save_potential, event_name
-        ),
-        "INVESTMENT": generate_plan_investment(
-            current_amount, target_amount, period_months, monthly_save_potential
+    if latest_analysis and session:
+        # 상위 지출 카테고리 조회 (Wants 위주, 금액 큰 순서)
+        # 실제로는 CATEGORY_MAP 등을 활용해 Needs(주거/통신)는 제외하는 것이 좋으나
+        # 여기서는 금액이 큰 상위 3개를 가져와서 시뮬레이션
+        try:
+            stats = session.exec(
+                select(SpendingCategoryStats)
+                .where(SpendingCategoryStats.analysis_id == latest_analysis.id)
+                .order_by(SpendingCategoryStats.amount.desc())
+                .limit(3) 
+            ).all()
+
+            for stat in stats:
+                # 카테고리별 절약 플랜 생성
+                plan = generate_plan_frugal(
+                    current_amount, target_amount, period_months, monthly_save_potential,
+                    overspent_category=stat.category_name,
+                    category_amount=stat.amount
+                )
+                plan["variant_id"] = f"frugal_{stat.category_name}"
+                frugal_candidates.append(plan)
+                
+        except Exception as e:
+            print(f"카테고리별 절약 플랜 생성 중 오류: {e}")
+
+    # 데이터가 없거나 부족할 경우를 대비해 '기본 초절약 플랜' 하나 추가
+    if not frugal_candidates:
+        default_frugal = generate_plan_frugal(
+            current_amount, target_amount, period_months, monthly_save_potential,
+            overspent_category="불필요한 소비",
+            category_amount=0 
         )
-    }
+        default_frugal["variant_id"] = "frugal_default"
+        frugal_candidates.append(default_frugal)
     
+    base_plans_list.extend(frugal_candidates)
+
+    # [SUPPORT] 지원금 플랜
+    base_plans_list.append(generate_plan_support(
+        current_amount, target_amount, period_months, 
+        monthly_save_potential, event_name
+    ))
+
+    # [INVESTMENT] 투자 플랜
+    base_plans_list.append(generate_plan_investment(
+        current_amount, target_amount, period_months, monthly_save_potential
+    ))
+
+    # 모든 플랜이 비추천(False)이라면, 가장 효과가 좋은 상위 2개 플랜을 추천으로 변경
+    if not any(p["is_recommended"] for p in base_plans_list):
+        # MAINTAIN(현상유지)을 제외하고, 최종 자산이 가장 많은 플랜 찾기
+        candidates = [p for p in base_plans_list if p["plan_type"] != "MAINTAIN"]
+        
+        if candidates:
+            sorted_candidates = sorted(candidates, key=lambda x: x["final_estimated_asset"], reverse=True)
+            top_plans = sorted_candidates[:2]
+            
+            for index, plan in enumerate(top_plans):
+                plan["is_recommended"] = True
+                
+                tag_text = "최선의 선택" if index == 0 else "차선책"
+                
+                if isinstance(plan.get("tags"), list):
+                    plan["tags"].insert(0, tag_text)
+                else:
+                    plan["tags"] = [tag_text]
+                
+                if index == 0:
+                    plan["recommendation"] += " (현재 상황에서 가장 효과적인 방법입니다.)"
+                else:
+                    plan["recommendation"] += " (이 방법도 좋은 대안이 될 수 있습니다.)"
+
+    #  AI에게 전달할 데이터 구성
     tool_plans_for_ai = []
-    for p_type, plan in base_plans.items():
+    for plan in base_plans_list:
         tool_plans_for_ai.append({
-            "plan_type": p_type,
+            "variant_id": plan.get("variant_id", plan["plan_type"]),
+            "plan_type": plan["plan_type"],
+            "plan_title": plan["plan_title"],
             "monthly_required": plan["monthly_required"],
             "monthly_shortfall": plan["monthly_shortfall"],
-            "expected_period": plan["expected_period"],
-            "is_recommended_by_tool": plan["is_recommended"],
-            "tool_message": plan["recommendation"],
-            "support_found": plan.get("support_info") is not None if p_type == "SUPPORT" else None,
-            "sto_product": plan.get("sto_product", {}).get("name") if p_type == "INVESTMENT" else None
+            "final_estimated_asset": plan["final_estimated_asset"],
+            "tool_message": plan["description"],
+            "is_recommended": plan["is_recommended"]
         })
-    
-    #  소비분석 컨텍스트 구성
-    spending_context = ""
-    overspent_category = "알 수 없음"
-    
-    if latest_analysis:
-        overspent_category = latest_analysis.overspent_category
-        spending_context = f"""
-## 최근 소비 패턴 (참고)
-- 주요 지출: {latest_analysis.top_category}
-- 과소비 항목: {overspent_category} ← 절약 플랜 제안 시 이 항목을 줄이는 것을 구체적으로 언급할 것
-"""
-    
-    #  AI 프롬프트 구성 (다양한 플랜 생성 허용)
+
+    #  AI 프롬프트 (Tool이 준 데이터를 그대로 활용하도록 유도)
     prompt = f"""
-당신은 대학생을 위한 창의적인 금융 코치 'PlanB'입니다.
-사용자({user_name})가 '{event_name}' 목표를 세웠습니다.
+당신은 대학생을 위한 금융 코치 'PlanB'입니다.
+사용자({user_name})의 목표('{event_name}') 달성을 위한 시뮬레이션 결과를 보고, 사용자에게 보여줄 플랜 카드를 완성해주세요.
 
 ## 목표 정보
 - 금액: {target_amount:,}원
 - 기간: {period_months}개월
 - 현재 자산: {current_amount:,}원
 
-## Tool 분석 결과
-- 난이도: {situation['difficulty']}
-- 부족 금액: {situation['shortfall_amount']:,}원
-- 추가 월 저축 필요: {situation['monthly_gap']:,}원
-
-{spending_context}
-
-## Tool이 계산한 플랜 후보 (금액/기간은 정확함)
+## Tool이 계산한 플랜 후보들 (이 데이터를 기반으로 작성)
 {json.dumps(tool_plans_for_ai, ensure_ascii=False, indent=2)}
 
-## 당신의 임무
-1. **다양한 플랜 생성**: 위 4개 타입을 기반으로 **총 3~8개의 플랜**을 만드세요.
-   - **같은 타입(예: FRUGAL)도 여러 개 생성 가능합니다!**
-   - 예: FRUGAL 타입이지만
-     * "카페만 절약" 플랜
-     * "배달음식만 절약" 플랜  
-     * "카페+배달음식 모두 절약" 플랜
-   
-2. 난이도별 플랜 개수 가이드:
-   - 난이도 '쉬움': 3~4개 (MAINTAIN + FRUGAL 변형들)
-   - 난이도 '보통': 4~5개 (MAINTAIN + FRUGAL 변형들 + SUPPORT)
-   - 난이도 '어려움': 5~7개 (MAINTAIN + FRUGAL 변형들 + SUPPORT + INVESTMENT)
-   - 난이도 '매우 어려움': 6~8개 (모든 타입 + 여러 변형)
-   - **MAINTAIN은 필수 1개 포함**
+## 임무
+1. 위 'Tool이 계산한 플랜 후보들'을 **하나도 빠짐없이** 모두 포함하여 JSON으로 반환하세요.
+2. 각 플랜의 **`plan_title`**, **`description`**, **`recommendation`**, **`tags`** 를 더 매력적이고 자연스러운 한국어(존댓말)로 다듬어주세요.
+   - 예: "식비 절약 플랜" -> "배달 줄이고 집밥 먹기" 
+   - 예: Tool 설명이 "식비 20% 절약 시..."라면 -> "식비를 20%만 줄여도 목표에 한 걸음 더 가까워집니다."
+3. **중요**: 금액(`monthly_required`, `final_estimated_asset` 등)과 기간은 **절대 수정하지 말고** 입력받은 그대로 반환하세요. (계산은 Tool이 정확함)
+4. `variant_id`는 입력받은 값을 그대로 유지하세요.
 
-3. FRUGAL 플랜 변형 아이디어:
-   - 과소비 항목('{overspent_category}')을 집중 절약
-   - 다른 카테고리(배달음식, 사회/모임 등)를 집중 절약
-   - 여러 카테고리를 동시에 절약
-   - 절약 강도를 다르게 (10% vs 20%)
-
-4. 각 플랜마다 다른 **plan_title**, **description**, **recommendation**, **tags**를 작성하세요.
-
-5. **is_recommended**는 상황에 맞게 True/False로 지정하세요 (추천 플랜은 3~4개 정도).
-
-6. **중요**: 금액/기간 데이터는 절대 작성하지 마세요. Tool 값을 사용합니다.
-
-## 응답 형식 (JSON만)
+## 응답 형식 (JSON)
 {{
-    "ai_summary": "전체 상황 요약 (100-150자, 존댓말, 난이도 언급)",
-    "recommendation": "최종 조언 (80-120자, 존댓말, 가장 추천하는 플랜 1개 명시)",
+    "ai_summary": "전체 분석 요약 (한 줄평)",
+    "recommendation": "최종 조언",
     "plans": [
         {{
-            "plan_type": "MAINTAIN",
-            "plan_title": "현재 속도로 {event_name} 준비",
-            "description": "...",
-            "recommendation": "...",
-            "tags": ["안정적", "장기"],
-            "is_recommended": false,
-            "variant_id": "maintain_baseline"
+            "variant_id": "입력받은 variant_id 그대로",
+            "plan_type": "...",
+            "plan_title": "AI가 다듬은 제목",
+            "description": "AI가 다듬은 설명",
+            "recommendation": "AI가 쓴 추천/비추천 멘트",
+            "tags": ["태그1", "태그2"],
+            "is_recommended": true/false (Tool 값 참고하되 조정 가능)
         }},
-        {{
-            "plan_type": "FRUGAL",
-            "plan_title": "카페만 집중 절약",
-            "description": "카페 지출만 20% 줄이면...",
-            "recommendation": "...",
-            "tags": ["카페절약", "현실적"],
-            "is_recommended": true,
-            "variant_id": "frugal_cafe_only"
-        }},
-        {{
-            "plan_type": "FRUGAL",
-            "plan_title": "배달음식 줄이기",
-            "description": "배달음식을 주 1회로 제한하면...",
-            "recommendation": "...",
-            "tags": ["배달절약", "건강"],
-            "is_recommended": true,
-            "variant_id": "frugal_delivery_only"
-        }},
-        {{
-            "plan_type": "FRUGAL",
-            "plan_title": "전방위 초절약",
-            "description": "카페+배달음식+쇼핑 모두 10% 줄이면...",
-            "recommendation": "...",
-            "tags": ["고강도", "빠른달성"],
-            "is_recommended": false,
-            "variant_id": "frugal_all_categories"
-        }}
+        ...
     ]
 }}
-
-**핵심:**
-- 같은 plan_type도 여러 개 생성 가능! (variant_id로 구분)
-- 각 플랜은 서로 다른 전략과 메시지
-- 총 3~8개 생성 (난이도에 따라)
-- 추천 플랜은 3~4개 정도
 """
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {
-                    "role": "system", 
-                    "content": "당신은 PlanB 금융 코치입니다. 창의적이고 다양한 플랜을 생성하되, JSON 형식으로만 응답하며 존댓말을 사용합니다."
-                },
+                {"role": "system", "content": "JSON 형식으로만 응답하세요."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.8,  # 창의성 높임
-            max_tokens=3000,  # 여러 플랜 생성 위해 늘림
+            temperature=0.7,
             response_format={"type": "json_object"}
         )
         
-        ai_text = response.choices[0].message.content.strip()
-        ai_result = json.loads(ai_text)
+        ai_result = json.loads(response.choices[0].message.content.strip())
         
-        #  AI 텍스트 + Tool 숫자 병합
+        #  AI 결과와 Tool 원본 데이터 병합
         final_plans = []
         
-        for ai_plan in ai_result.get("plans", []):
-            p_type = ai_plan.get("plan_type", "").upper()
-            variant_id = ai_plan.get("variant_id", "default")
+        # AI가 반환한 플랜 리스트를 순회하며 원본 데이터와 매칭
+        ai_plans_map = {p.get("variant_id"): p for p in ai_result.get("plans", [])}
+        
+        for base_plan in base_plans_list:
+            v_id = base_plan.get("variant_id", base_plan["plan_type"])
+            ai_plan = ai_plans_map.get(v_id)
             
-            # Tool이 계산한 원본 플랜 가져오기
-            base_plan = base_plans.get(p_type)
+            if ai_plan:
+                base_plan["plan_title"] = ai_plan.get("plan_title", base_plan["plan_title"])
+                base_plan["description"] = ai_plan.get("description", base_plan["description"])
+                base_plan["recommendation"] = ai_plan.get("recommendation", base_plan["recommendation"])
+                base_plan["tags"] = ai_plan.get("tags", base_plan["tags"])
+                
+                if "is_recommended" in ai_plan:
+                    base_plan["is_recommended"] = ai_plan["is_recommended"]
             
-            if base_plan:
-                # AI의 창의적 텍스트 사용
-                merged_plan = {
-                    "plan_type": p_type,
-                    "plan_title": ai_plan.get("plan_title", base_plan["plan_title"]),
-                    "description": ai_plan.get("description", base_plan["description"]),
-                    "recommendation": ai_plan.get("recommendation", base_plan["recommendation"]),
-                    "tags": ai_plan.get("tags", base_plan.get("tags", [])),
-                    "is_recommended": ai_plan.get("is_recommended", base_plan["is_recommended"]),
-                    "variant_id": variant_id,  # 변형 구분용
-                }
-                
-                # Tool의 정확한 수치 데이터로 강제 덮어쓰기
-                merged_plan.update({
-                    "monthly_required": base_plan["monthly_required"],
-                    "monthly_shortfall": base_plan["monthly_shortfall"],
-                    "final_estimated_asset": base_plan["final_estimated_asset"],
-                    "expected_period": base_plan["expected_period"],
-                })
-                
-                # Tool의 추가 메타 정보 보존
-                merged_plan["plan_detail"] = base_plan.get("plan_detail", {})
-                merged_plan["plan_detail"]["variant_id"] = variant_id  # 변형 ID 추가
-                
-                if "sto_product" in base_plan:
-                    merged_plan["sto_product"] = base_plan["sto_product"]
-                if "support_info" in base_plan:
-                    merged_plan["support_info"] = base_plan["support_info"]
-                if "investment_profit" in base_plan:
-                    merged_plan["investment_profit"] = base_plan["investment_profit"]
-                if "monthly_saved" in base_plan:
-                    merged_plan["monthly_saved"] = base_plan["monthly_saved"]
-                if "next_tool" in base_plan:
-                    merged_plan["next_tool"] = base_plan["next_tool"]
-                
-                final_plans.append(merged_plan)
-                print(f"      → {p_type} ({variant_id}) 플랜 병합 완료")
-
-        if not final_plans:
-            raise ValueError("AI가 유효한 플랜을 반환하지 않음")
+            final_plans.append(base_plan)
 
         return {
             "situation_analysis": situation,
@@ -284,36 +248,14 @@ def generate_comprehensive_plans(
             "recommendation": ai_result.get("recommendation", "")
         }
 
-    except json.JSONDecodeError as e:
-        print(f"    AI 응답 JSON 파싱 실패: {e}")
-        print(f"      → 원본 응답: {ai_text[:200]}...")
-        
     except Exception as e:
-        print(f"    AI 생성 실패: {e}")
-    
-    # ========================================
-    # 폴백: AI 실패 시 Tool 기본값 반환
-    # ========================================
-    print(f"\n    AI 생성 실패 - Tool 기본 플랜 사용 (폴백)")
-    
-    fallback_plans = [base_plans["MAINTAIN"]]
-    
-    if situation.get('plan_suitability', {}).get('FRUGAL', False):
-        fallback_plans.append(base_plans["FRUGAL"])
-    if situation.get('plan_suitability', {}).get('SUPPORT', False):
-        fallback_plans.append(base_plans["SUPPORT"])
-    if situation.get('plan_suitability', {}).get('INVESTMENT', False):
-        fallback_plans.append(base_plans["INVESTMENT"])
-    
-    print(f"      → 폴백 플랜: {[p['plan_type'] for p in fallback_plans]}")
-    print(f"{'='*80}\n")
-    
-    return {
-        "situation_analysis": situation,
-        "plans": fallback_plans,
-        "ai_summary": f"{user_name}님의 '{event_name}' 목표 달성을 위해 {len(fallback_plans)}가지 플랜을 준비했습니다.",
-        "recommendation": "각 플랜을 확인하시고 본인에게 가장 적합한 방법을 선택해보세요."
-    }
+        print(f"AI 생성 실패: {e}")
+        return {
+            "situation_analysis": situation,
+            "plans": base_plans_list,
+            "ai_summary": "AI 분석을 불러올 수 없어 기본 플랜을 표시합니다.",
+            "recommendation": "플랜을 직접 확인해보세요."
+        }
 
 
 async def run_challenge_simulation_service(
@@ -358,7 +300,8 @@ async def run_challenge_simulation_service(
         current_amount=current_amount,
         monthly_save_potential=monthly_save_potential,
         user_name=user.name,
-        latest_analysis=latest_analysis
+        latest_analysis=latest_analysis,
+        session=session
     )
     
     response_data = {
@@ -393,6 +336,7 @@ async def create_challenge_with_plan(
     period_months: int,
     current_amount: int,
     selected_plan: Dict[str, Any],
+    challenge_name: Optional[str],
     session: Session
 ) -> Dict[str, Any]:
     """
@@ -418,6 +362,13 @@ async def create_challenge_with_plan(
             "message": "이미 진행 중인 챌린지가 있습니다.",
             "is_new": False
         }
+    
+    # challenge_name 자동 생성
+    if not challenge_name:
+        if current_amount == 0:
+            challenge_name = f"0원에서 {event_name} 도전"
+        else:
+            challenge_name = f"{current_amount:,}원에서 {event_name} 도전"
 
     latest_analysis = get_latest_analysis(user.id, session)
     
@@ -428,6 +379,7 @@ async def create_challenge_with_plan(
         user_id=user.id,
         spending_analysis_id=latest_analysis.id if latest_analysis else None,
         
+        challenge_name=challenge_name,
         event_name=event_name,
         current_amount=current_amount,
         target_amount=target_amount,
