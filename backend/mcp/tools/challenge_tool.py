@@ -1,10 +1,10 @@
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_finance import mcp_registry_finance
 from backend.models.user import User
 from sqlmodel import Session
 
 from backend.services.simulate.simulate_event_service import create_challenge_with_plan
 
-@mcp_registry.register(
+@mcp_registry_finance.register(
     name="create_challenge",
     description="선택된 플랜으로 새로운 챌린지를 생성합니다."
 )

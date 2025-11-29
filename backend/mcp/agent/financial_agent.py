@@ -5,12 +5,12 @@ from openai import AsyncOpenAI
 
 from backend.models.user import User
 from backend.mcp.models import MCPRequest, MCPResponse
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_finance import mcp_registry_finance
 
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-async def run_mcp_agent(
+async def run_financial_agent(
     req: MCPRequest,
     user: User,
     session: Session
@@ -23,12 +23,10 @@ async def run_mcp_agent(
     # ------------------------------
     # 1) Context 가져오기
     # ------------------------------
-    source = req.context.get("source", "chat")       # chat or button
-    screen = req.context.get("screen", "unknown")
     payload_info = json.dumps(req.payload, ensure_ascii=False)
     user_text = req.query
 
-    print(f"[MCP AGENT] Source={source} Screen={screen} Query='{user_text}'")
+    print(f"[MCP AGENT] Query='{user_text}'")
 
     # ------------------------------
     # 2) MCP 스타일 시스템 프롬프트
@@ -39,35 +37,25 @@ async def run_mcp_agent(
     [사용자 정보]
     - User ID: {user.id}
 
-    [현재 화면]
-    - {screen}
-
     [Payload 정보]
     아래 값들은 이미 사용자가 제공한 값입니다. 다시 물어보지 말고 그대로 사용하세요.
     payload = {payload_info}
 
-    ## [Source 규칙]
-    1) source='button'
-        - 사용자는 명령을 직접 실행하려고 함
-        - 절대 긴 설명 금지
-        - 즉시 적절한 MCP Tool을 호출해야 함
+    ## [답변 규칙]
+    - 사용자는 명령을 직접 실행하려고 함
+    - 절대 긴 설명 금지
+    - 즉시 적절한 MCP Tool을 호출해야 함
+    - 호출할 수 있는 MCP Tool은 다음과 같음(중요):
+        recommend_budget, simulate_event, analyze_spending, create_challenge
+        이 외의 Tool은 호출하지 않아야 합니다.
 
-    2) source='chat'
-        - 사용자가 아래와 같은 요청을 하면, 절대 직접 MCP Tool(analyze_spending, recommend_budget, simulate_event, create_challenge)을 호출하지 마세요.
-            예: "소비 분석해줘", "이번 달 분석", "예산 추천해줘", "예산 알려줘", "시뮬레이션 하고 싶어", "목표 계산할래",
-                "챌린지 만들고 싶어", "챌린지 생성"
-        - 이런 자연어 요청은 반드시 redirect Tool을 호출해 사용자를 해당 화면으로 이동시키는 방식으로 처리합니다.
-        - 사용자는 금융 상담을 원함
-        - 필요 시 MCP Tool을 호출해 실데이터 기반 조언
-        - "이동"/"분석해줘"/"예산 추천해줘" 등 자연어는 tool로 변환
-
-    [중요 규칙 - 소비 분석(analyze_spending)]
+    [소비 분석(analyze_spending)]
     - 사용자가 월을 입력하지 않아도 됩니다.
     - month가 없으면 Tool(analyze_spending)이 자동으로 최신 데이터를 선택합니다.
     - 절대 "몇 월을 분석할까요?"라고 물어보지 마세요.
     - 요청이 '분석'과 관련 있으면 바로 analyze_spending Tool을 실행하세요.
     
-    [중요 규칙 - 예산 추천(recommend_budget)]
+    [예산 추천(recommend_budget)]
     - plan_type이 없으면 절대 사용자에게 물어보지 마세요.
     - 무조건 기본값 '50/30/20'을 사용하세요.
     - 질문을 유도하지 말고 즉시 도구를 실행하세요.
@@ -109,42 +97,6 @@ async def run_mcp_agent(
     3. simulate_event 이후 사용자가 “이걸로 챌린지 만들래”,  
         “챌린지 생성”, “이 플랜으로 진행” 등 말하면 create_challenge Tool 호출.
 
-    [금융 상담 및 교육 (consult_financial_advisor)]
-    1. 사용자가 다음과 같은 "고민 상담"이나 "방법론", "교육"을 원할 때 이 Tool을 사용하세요.
-       - "돈 어떻게 모아야 해?", "현실적인 저축 방법 알려줘"
-       - "주식 처음인데 어떻게 해?", "주식 공부 책 추천해줘"
-       - "시드머니 모으는 법", "통장 쪼개기가 뭐야?"
-       - "집 사려면 어떻게 해야 해?", "청약이 뭐야?"
-    - ★매우 중요★: "CMA가 뭐야?", "ETF가 뭔데?", "공매도가 뭐야?" 같이 **단순한 금융 용어 정의나 개념을 묻는 질문에도 반드시 이 Tool을 사용하세요.**
-    2. 파라미터 `topic`은 질문 내용에 따라 아래 중 하나를 선택하세요.
-       - 저축/목돈/시드머니/통장쪼개기: "savings"
-       - 주식/투자시작/소수점 투자/ETF: "investment_entry"
-       - 공부/자료/책 추천/유튜브 채널: "study"
-       - 주거/청약/전세/월세/독립: "housing"
-       - 기타/일반적 재무 고민: "general"
-    3. 단순한 '정책 검색'(장학금 찾아줘)은 `get_support_info`를 쓰고, 
-       '조언/전략/교육'이 필요하면 `consult_financial_advisor`를 쓰세요.
-
-    [또래 소비 비교 (compare_with_peers)]
-       - 사용자가 "나 많이 쓰는 편이야?", "남들은 식비 얼마나 써?", "평균이랑 비교해줘", "내 소비 수준 어때?" 같이 **타인과의 비교**를 원할 때 사용하세요.
-       - `category` 파라미터는 질문 내용을 보고 추론하세요 (예: "식비 비교해줘" -> "식사").
-       - ★중요★ 사용자가 특정 카테고리를 언급하지 않았다면, **사용자에게 되묻지 말고 무조건 "전체"로 설정하여 즉시 Tool을 실행하세요.**
-
-    [금융 페르소나/MBTI (get_financial_persona)]
-       - 사용자가 "내 소비 성향 알려줘", "나 어떤 타입이야?", "내 소비 MBTI 뭐야?", "별명 지어줘" 같이 **자신의 소비 스타일이나 유형**을 물어볼 때 사용하세요.
-       - 별도의 파라미터는 필요 없습니다.
-    
-    [redirect 규칙]
-    - 사용자가 "예산 추천 페이지로 가줘", "시뮬레이션 하러 갈래" 등 페이지 이동을 요청하면 redirect Tool을 호출하십시오.
-    - redirect Tool의 파라미터 target은 다음 중 하나여야 합니다:
-        ["analysis", "budget", "simulate"]
-    - redirect Tool의 target 매핑은 다음과 같습니다.
-        - 소비 분석 관련 -> target="analysis"
-        - 예산 추천 관련 -> target="budget"
-        - 시뮬레이션 관련 -> target="simulate"
-        - 챌린지 생성은 시뮬레이션 화면으로 이동 -> target="simulate"
-    - 프론트에서 이동하기 때문에 메시지를 길게 쓰지 마세요.
-
     [응답 규칙]
     - 반드시 하나의 tool을 선택하거나, 메시지(text)로 답하세요
     - 함수 이름과 파라미터는 제공된 MCP Tool 스키마만 사용하세요
@@ -159,7 +111,7 @@ async def run_mcp_agent(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text},
         ],
-        tools=mcp_registry.schemas,
+        tools=mcp_registry_finance.schemas,
         tool_choice="auto"
     )
     
@@ -179,7 +131,7 @@ async def run_mcp_agent(
         final_args = {**args, **req.payload}
 
         # registry에서 함수 실행
-        result = await mcp_registry.execute(
+        result = await mcp_registry_finance.execute(
             tool_name=tool_name,
             user=user,
             session=session,
@@ -190,11 +142,7 @@ async def run_mcp_agent(
             "type": "tool_result",
             "tool": tool_name,
             "data": result,
-            "agent_trace": {
-                "source": source,
-                "screen": screen,
-                "action": "Executed MCP Tool"
-            }
+            "action": "Executed MCP Tool"
         }
 
     # ------------------------------
@@ -203,9 +151,5 @@ async def run_mcp_agent(
     return {
         "type": "message",
         "message": msg.content,
-        "agent_trace": {
-            "source": source,
-            "screen": screen,
-            "action": "Chat response"
-        }
+        "action": "Chat response"
     }

@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any, List
 from sqlmodel import Session, select, col
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_chat import mcp_registry_chat
 from backend.models.user import User
 from backend.models.analyze_spending import SpendingAnalysis
 from backend.models.challenge import Challenge, ChallengeStatus
@@ -105,7 +105,7 @@ def get_user_financial_context(user: User, session: Session) -> Dict[str, Any]:
         
     return context
 
-@mcp_registry.register(
+@mcp_registry_chat.register(
     name="consult_financial_advisor",
     description="금융 관련 고민(저축, 투자, 주식 공부, 목돈 마련 등)에 대해 사용자의 재무 상황을 고려하여 전문적인 조언을 제공합니다. 질문(query)과 주제(topic)를 입력받습니다."
 )

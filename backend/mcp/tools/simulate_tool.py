@@ -1,11 +1,11 @@
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_finance import mcp_registry_finance
 from backend.models.user import User
 from sqlmodel import Session
 from typing import Any, Optional
 
 from backend.services.simulate.simulate_event_service import run_challenge_simulation_service
 
-@mcp_registry.register(
+@mcp_registry_finance.register(
     name="simulate_event",
     description="목표 금액, 기간, 이벤트 이름을 기반으로 맞춤형 플랜을 시뮬레이션합니다."
 )

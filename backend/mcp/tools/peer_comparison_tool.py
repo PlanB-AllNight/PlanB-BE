@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Any
 from sqlalchemy import func
 from sqlmodel import Session, select
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_chat import mcp_registry_chat
 from backend.models.user import User
 from backend.models.analyze_spending import SpendingAnalysis, SpendingCategoryStats
 
@@ -66,7 +66,7 @@ def get_real_peer_average(session: Session, category: str) -> int:
         print(f"[DB Average Error] {e}")
         return 0
 
-@mcp_registry.register(
+@mcp_registry_chat.register(
     name="compare_with_peers",
     description="나의 소비를 또래(평균)와 비교합니다. '나 식비 많이 써?', '남들은 얼마나 써?', '평균이랑 비교해줘' 등의 질문에 사용합니다."
 )

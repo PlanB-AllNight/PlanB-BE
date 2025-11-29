@@ -1,6 +1,5 @@
 from typing import Callable, Dict, Any, List
 import inspect
-import json
 
 class ToolRegistry:
     def __init__(self):
@@ -56,4 +55,4 @@ class ToolRegistry:
         return result
 
 
-mcp_registry = ToolRegistry()
+mcp_registry_finance = ToolRegistry()

@@ -1,10 +1,10 @@
 from sqlmodel import Session
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_finance import mcp_registry_finance
 
 from backend.models.user import User
 from backend.services.spending.analyze_spending_service import run_spending_analysis_service
 
-@mcp_registry.register(
+@mcp_registry_finance.register(
     name="analyze_spending",
     description="사용자의 소비 내역을 분석하여 통계와 인사이트를 제공합니다. 월(month)을 지정하면 해당 월을 분석하며, 지정하지 않거나 해당 월의 데이터가 없는 경우 보유한 데이터 중 가장 최신 월을 분석합니다."
 )

@@ -19,6 +19,8 @@ import backend.mcp.tools.budget_tool
 import backend.mcp.tools.simulate_tool
 import backend.mcp.tools.challenge_tool
 import backend.mcp.tools.redirect_tool
+import backend.mcp.tools.search_support_tool
+import backend.mcp.tools.support_detail_tool
 import backend.mcp.tools.financial_consultant_tool
 import backend.mcp.tools.peer_comparison_tool
 import backend.mcp.tools.financial_persona_tool
