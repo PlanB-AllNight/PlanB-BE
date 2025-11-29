@@ -15,21 +15,39 @@ PLAN_TYPES = {
 KOSCOM_STO_PRODUCTS = [
     {
         "id": "STO_001",
-        "name": "A음악저작권 STO",
-        "annual_return": 0.07,
-        "min_investment": 100000,
-        "risk_level": "중위험",
-        "description": "인기 K-POP 저작권 수익 배당",
-        "recommended_period": 12
+        "name": "강남 역삼 오피스 빌딩 1호",
+        "annual_return": 0.055, # 카사(Kasa) 등 부동산 조각투자 평균 배당+매각 수익률 고려 (약 5~6%대)
+        "min_investment": 5000, # 통상적인 부동산 DABS 1주 공모가
+        "risk_level": "저위험",
+        "description": "강남 업무지구 핵심 입지의 오피스 빌딩 임대 배당 및 매각 차익",
+        "recommended_period": 24
     },
     {
         "id": "STO_002", 
-        "name": "B부동산 STO",
-        "annual_return": 0.05,
-        "min_investment": 500000,
-        "risk_level": "저위험",
-        "description": "안정적인 오피스텔 임대 수익",
-        "recommended_period": 24
+        "name": "K-POP 음원 저작권료 신탁수익증권",
+        "annual_return": 0.08, # 뮤직카우 등 저작권료 배당 기대 수익률 (약 8%)
+        "min_investment": 10000, # 음원 저작권 1주 단위 통상 가격
+        "risk_level": "중위험",
+        "description": "글로벌 팬덤을 보유한 K-POP 아티스트의 음원 저작권료 수익 배당",
+        "recommended_period": 12
+    },
+    {
+        "id": "STO_003",
+        "name": "프리미엄 한우 송아지 사육 투자",
+        "annual_return": 0.09, # 뱅카우 2024년 공모 상품 목표 수익률(8~9%) 반영
+        "min_investment": 20000, # 뱅카우 공모가 1주 2만원 반영
+        "risk_level": "고위험", # 생물 자산 특성(폐사, 등급 하락 등) 반영
+        "description": "철저한 관리하에 사육되는 1등급 한우의 경매 매각 수익 배분",
+        "recommended_period": 30 # 한우 평균 사육 기간 (약 30개월)
+    },
+    {
+        "id": "STO_004",
+        "name": "글로벌 블루칩 미술품 조각투자",
+        "annual_return": 0.12, # 테사 등 미술품 조각투자 과거 평균 목표 수익률 반영
+        "min_investment": 1000, # 소액 투자 가능성 반영 (1천원 단위)
+        "risk_level": "고위험", # 예술품 시장 유동성 리스크 및 가격 변동성 반영
+        "description": "세계적인 거장의 검증된 미술 작품 소유권 분할 투자 및 매각 차익",
+        "recommended_period": 12
     }
 ]
 
