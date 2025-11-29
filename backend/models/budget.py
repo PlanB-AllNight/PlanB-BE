@@ -48,6 +48,7 @@ class BudgetSummary(BaseModel):
 
 # 최종 응답 DTO (프론트엔드용)
 class BudgetResponse(BaseModel):
+    spending_analysis_id: int
     title: str
     date: str
     total_income: int
@@ -58,4 +59,4 @@ class BudgetResponse(BaseModel):
 
 # 요청 DTO
 class BudgetRequest(BaseModel):
-    selected_plan: str = "40/30/30" # enum 형식으로 받음 (default: 40/30/30 룰)
+    selected_plan: str = "50/30/20" # enum 형식으로 받음 (default: 50/30/20 룰)

@@ -78,30 +78,8 @@ async def run_budget_recommendation_service(
 
     created_at = datetime.now()
 
-    # 8. DB 저장
-    db_obj = BudgetAnalysis(
-        user_id=user.id,
-        spending_analysis_id=spending_analysis_id,
-        title=ai_output["title"],
-        plan_type=selected_plan,
-
-        essential_budget=final_data["essential_budget"],
-        optional_budget=final_data["optional_budget"],
-        saving_budget=final_data["saving_budget"],
-
-        category_proposals=final_data["category_proposals"],
-        ai_proposal=final_data["ai_proposal"],
-
-        created_at=created_at
-    )
-
-    session.add(db_obj)
-    session.commit()
-    session.refresh(db_obj)
-
-    print(f"🎉 BudgetAnalysis 저장 완료 (ID: {db_obj.id})")
-
     response = BudgetResponse(
+        spending_analysis_id=spending_analysis_id,
         title=ai_output["title"],
         date=created_at.strftime("%Y-%m"),
         total_income=baseline["total_income"],
