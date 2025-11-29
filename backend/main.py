@@ -52,6 +52,7 @@ def read_root():
 app.include_router(mcp_router.router)
 app.include_router(user.router, prefix="/users", tags=["User"])
 app.include_router(analyze.router, prefix="/analyze", tags=["Analyze"])
+app.include_router(challenge.router, prefix="/challenge", tags=["Challenge"])
 app.include_router(budget.router, prefix="/budget", tags=["Budget"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
 app.include_router(support.router, prefix="/chat", tags=["Chat"])
