@@ -141,6 +141,20 @@ async def save_selected_budget(
 
         if not (plan_type and essential_budget and optional_budget and saving_budget):
             raise HTTPException(400, "필수 예산 정보가 누락되었습니다.")
+        
+        # 동일한 분석 결과 & 동일한 플랜이면 중복으로 판단
+        existing = session.exec(
+            select(BudgetAnalysis)
+            .where(BudgetAnalysis.user_id == current_user.id)
+            .where(BudgetAnalysis.spending_analysis_id == spending_analysis_id)
+            .where(BudgetAnalysis.plan_type == plan_type)
+        ).first()
+
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="이미 동일한 분석 결과와 동일한 플랜의 예산안이 저장되어 있습니다."
+            )
 
         # DB 저장
         new_obj = BudgetAnalysis(
@@ -167,6 +181,9 @@ async def save_selected_budget(
             "message": "예산안이 저장되었습니다.",
             "budget_id": new_obj.id
         }
+
+    except HTTPException as e:
+        raise e
 
     except Exception as e:
         raise HTTPException(
