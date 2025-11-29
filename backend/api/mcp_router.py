@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
-from backend.core.security import get_session, get_current_user
+from backend.api.deps import get_session, get_current_user
 from backend.models.user import User
 from backend.mcp.models import MCPRequest, MCPResponse
 from backend.mcp.agent_runner import run_mcp_agent
