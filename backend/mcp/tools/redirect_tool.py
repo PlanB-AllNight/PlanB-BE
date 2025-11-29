@@ -1,9 +1,9 @@
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_chat import mcp_registry_chat
 from backend.models.user import User
 from sqlmodel import Session
 
 # Tool 등록
-@mcp_registry.register(
+@mcp_registry_chat.register(
     name="redirect",
     description="앱의 특정 페이지로 이동합니다."
 )
