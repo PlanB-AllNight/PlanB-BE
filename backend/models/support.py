@@ -39,6 +39,11 @@ class SupportPolicy(SQLModel, table=True):
     # AI/검색/필터용
     keywords: Optional[str]
 
+    age_min: Optional[int] = None
+    age_max: Optional[int] = None
+    region: Optional[str] = Field(default="전국")
+    student_only: Optional[bool] = None  # 대학생 전용인지
+
 # 응답용 DTO
 class SupportPolicyRead(BaseModel):
     id: int
