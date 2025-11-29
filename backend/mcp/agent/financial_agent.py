@@ -5,7 +5,7 @@ from openai import AsyncOpenAI
 
 from backend.models.user import User
 from backend.mcp.models import MCPRequest, MCPResponse
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_finance import mcp_registry_finance
 
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -111,7 +111,7 @@ async def run_financial_agent(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text},
         ],
-        tools=mcp_registry.schemas,
+        tools=mcp_registry_finance.schemas,
         tool_choice="auto"
     )
     
@@ -131,7 +131,7 @@ async def run_financial_agent(
         final_args = {**args, **req.payload}
 
         # registry에서 함수 실행
-        result = await mcp_registry.execute(
+        result = await mcp_registry_finance.execute(
             tool_name=tool_name,
             user=user,
             session=session,

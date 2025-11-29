@@ -1,10 +1,10 @@
 from sqlmodel import Session
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_finance import mcp_registry_finance
 
 from backend.models.user import User
 from backend.services.budget.recommend_budget_service import run_budget_recommendation_service
 
-@mcp_registry.register(
+@mcp_registry_finance.register(
     name="recommend_budget",
     description="최근 소비 분석 결과를 기반으로 맞춤 예산안을 생성합니다. 입력값: plan_type (50/30/20, 60/20/20, 40/30/30)"
 )
