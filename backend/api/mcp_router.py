@@ -3,7 +3,8 @@ from sqlmodel import Session
 from backend.api.deps import get_session, get_current_user
 from backend.models.user import User
 from backend.mcp.models import MCPRequest, MCPResponse
-from backend.mcp.agent_runner import run_mcp_agent
+from backend.mcp.agent.financial_agent import run_financial_agent
+from backend.mcp.agent.chat_agent import run_chat_agent
 
 router = APIRouter(prefix="/mcp", tags=["MCP Agent"])
 
@@ -25,6 +26,14 @@ async def endpoint_mcp_intent(
     )
 
     return MCPResponse(**result)
+
+@router.post("/chat", response_model=MCPResponse)
+async def endpoint_mcp_intent(
+    req: MCPRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    result = await run_chat_agent(
         req=req,   
         user=user,
         session=session

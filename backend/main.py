@@ -14,11 +14,12 @@ from backend.models import user, analyze_spending, challenge, budget, support
 from backend.api import user, analyze, budget, support, mcp_router, challenge
 
 # MCP server 등록
-import backend.mcp.tools.spending
-import backend.mcp.tools.budget
-import backend.mcp.tools.simulate
-import backend.mcp.tools.challenge
-import backend.mcp.tools.redirect
+import backend.mcp.tools.spending_tool
+import backend.mcp.tools.budget_tool
+import backend.mcp.tools.simulate_tool
+import backend.mcp.tools.challenge_tool
+import backend.mcp.tools.redirect_tool
+import backend.mcp.tools.search_support_tool
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
