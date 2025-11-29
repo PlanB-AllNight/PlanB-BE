@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from typing import Dict, Any
+from sqlalchemy import func
 from sqlmodel import Session, select
 from backend.mcp.registry import mcp_registry
 from backend.models.user import User
