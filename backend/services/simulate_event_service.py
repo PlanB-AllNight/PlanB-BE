@@ -120,6 +120,7 @@ def generate_comprehensive_plans(
 
     # [SUPPORT] 지원금 플랜
     base_plans_list.append(generate_plan_support(
+        session,
         current_amount, target_amount, period_months, 
         monthly_save_potential, event_name
     ))
@@ -182,11 +183,14 @@ def generate_comprehensive_plans(
 
 ## 임무
 1. 위 'Tool이 계산한 플랜 후보들'을 **하나도 빠짐없이** 모두 포함하여 JSON으로 반환하세요.
-2. 각 플랜의 **`plan_title`**, **`description`**, **`recommendation`**, **`tags`** 를 더 매력적이고 자연스러운 한국어(존댓말)로 다듬어주세요.
+2. 각 플랜의 **`plan_title`**, **`description`**, **`recommendation`**을 더 매력적이고 자연스러운 한국어(존댓말)로 다듬어주세요.
    - 예: "식비 절약 플랜" -> "배달 줄이고 집밥 먹기" 
-   - 예: Tool 설명이 "식비 20% 절약 시..."라면 -> "식비를 20%만 줄여도 목표에 한 걸음 더 가까워집니다."
-3. **중요**: 금액(`monthly_required`, `final_estimated_asset` 등)과 기간은 **절대 수정하지 말고** 입력받은 그대로 반환하세요. (계산은 Tool이 정확함)
-4. `variant_id`는 입력받은 값을 그대로 유지하세요.
+   - 예: "식비 20% 절약 시..." -> "식비를 20%만 줄여도 목표에 한 걸음 더 가까워집니다."
+3. **`tags`**는 해당 플랜의 핵심 특징(절약 금액, 감축 비율, 추천 여부 등)을 잘 나타내는 키워드로 **2~3개**를 생성해주세요.
+   - `tool_tags`를 참고하되, 더 직관적인 단어로 변경해도 좋습니다.
+   - 예: ["월 10만원 SAVE", "커피값 줄이기", "강력 추천"]
+4. **중요**: 금액(`monthly_required`, `final_estimated_asset` 등)과 기간은 **절대 수정하지 말고** 입력받은 그대로 반환하세요. (계산은 Tool이 정확함)
+5. `variant_id`는 입력받은 값을 그대로 유지하세요.
 
 ## 응답 형식 (JSON)
 {{
