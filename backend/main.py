@@ -20,6 +20,7 @@ import backend.mcp.tools.simulate_tool
 import backend.mcp.tools.challenge_tool
 import backend.mcp.tools.redirect_tool
 import backend.mcp.tools.financial_consultant_tool
+import backend.mcp.tools.peer_comparison_tool
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
