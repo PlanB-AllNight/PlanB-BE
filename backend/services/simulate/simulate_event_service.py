@@ -122,6 +122,8 @@ async def create_challenge_with_plan(
     statement = select(Challenge).where(
         Challenge.user_id == user.id,
         Challenge.event_name == event_name,
+        Challenge.current_amount == current_amount,
+        Challenge.plan_type == PlanType(selected_plan['plan_type']),
         Challenge.status == ChallengeStatus.IN_PROGRESS
     )
     existing = session.exec(statement).first()
@@ -138,12 +140,9 @@ async def create_challenge_with_plan(
             "is_new": False
         }
     
-    # challenge_name 자동 생성
-    if not challenge_name:
-        if current_amount == 0:
-            challenge_name = f"0원에서 {event_name} 도전"
-        else:
-            challenge_name = f"{current_amount:,}원에서 {event_name} 도전"
+    auto_challenge_name = f"{current_amount:,}원으로 {event_name} 도전"
+
+    final_challenge_name = auto_challenge_name
 
     latest_analysis = get_latest_analysis(user.id, session)
     
@@ -154,7 +153,7 @@ async def create_challenge_with_plan(
         user_id=user.id,
         spending_analysis_id=latest_analysis.id if latest_analysis else None,
         
-        challenge_name=challenge_name,
+        challenge_name=final_challenge_name,
         event_name=event_name,
         current_amount=current_amount,
         target_amount=target_amount,
