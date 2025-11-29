@@ -1,4 +1,4 @@
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_chat import mcp_registry_chat
 from typing import Any, Dict, List, Optional
 
 from sqlmodel import Session
@@ -10,7 +10,7 @@ from backend.services.support.search_support import (
 )
 
 
-@mcp_registry.register(
+@mcp_registry_chat.register(
     name="search_support",
     description="장학금, 월세지원, 취업지원 등 사용자의 상황에 맞는 지원 정책을 검색합니다."
 )

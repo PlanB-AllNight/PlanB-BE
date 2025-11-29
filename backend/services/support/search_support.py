@@ -2,6 +2,8 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, datetime
 
+from functools import lru_cache
+
 from sqlmodel import Session, select
 
 from backend.models.support import SupportPolicy, SupportCategory
@@ -9,14 +11,13 @@ from backend.models.support import SupportPolicy, SupportCategory
 # -------------------------------------------------------------------
 # (옵션) BERT 기반 유사도 모델 로딩
 # -------------------------------------------------------------------
-try:
-    from sentence_transformers import SentenceTransformer, util
-
-    _bert_model: Optional[SentenceTransformer] = SentenceTransformer(
-        "snunlp/KR-SBERT-V40K-klueNLI-augSTS"
-    )
-except Exception:
-    _bert_model = None
+@lru_cache()
+def get_bert_model():
+    try:
+        from sentence_transformers import SentenceTransformer
+        return SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")
+    except Exception:
+        return None
 
 
 # -------------------------------------------------------------------
@@ -150,16 +151,23 @@ def expand_keywords_with_bert(
     threshold: float = 0.6,
     top_k: int = 5,
 ) -> List[str]:
-    if not _bert_model:
+    model = get_bert_model()
+    if model is None:
+        return base_keywords
+
+    # util import (BERT 설치 안 된 환경 대응)
+    try:
+        from sentence_transformers import util
+    except Exception:
         return base_keywords
 
     if not base_keywords or not all_keywords:
         return base_keywords
 
-    base_emb = _bert_model.encode(base_keywords, convert_to_tensor=True)
-    kw_emb = _bert_model.encode(all_keywords, convert_to_tensor=True)
+    base_emb = model.encode(base_keywords, convert_to_tensor=True)
+    kw_emb = model.encode(all_keywords, convert_to_tensor=True)
 
-    cos_scores = util.cos_sim(base_emb, kw_emb)  # (len(base), len(all_keywords))
+    cos_scores = util.cos_sim(base_emb, kw_emb)
 
     expanded = set(base_keywords)
 
