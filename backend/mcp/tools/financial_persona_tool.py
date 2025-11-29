@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from typing import Dict, Any
 from sqlmodel import Session
-from backend.mcp.registry import mcp_registry
+from backend.mcp.registry.mcp_registry_chat import mcp_registry_chat
 from backend.models.user import User
 from backend.services.spending.analyze_spending import DATA_PATH, CATEGORY_MAP
 
@@ -112,7 +112,7 @@ def analyze_persona_logic(df: pd.DataFrame) -> Dict[str, Any]:
     return PERSONAS["BALANCE"]
 
 
-@mcp_registry.register(
+@mcp_registry_chat.register(
     name="get_financial_persona",
     description="사용자의 소비 패턴을 분석하여 재미있는 '금융 페르소나(별명)'와 특징을 알려줍니다. '내 소비 성향 알려줘', '나 어떤 타입이야?', '소비 MBTI' 등의 질문에 사용합니다."
 )
