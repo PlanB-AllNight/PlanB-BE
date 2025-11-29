@@ -2,7 +2,7 @@ from sqlmodel import Session
 from backend.mcp.registry import mcp_registry
 
 from backend.models.user import User
-from backend.services.recommend_budget_service import run_budget_recommendation_service
+from backend.services.budget.recommend_budget_service import run_budget_recommendation_service
 
 @mcp_registry.register(
     name="recommend_budget",

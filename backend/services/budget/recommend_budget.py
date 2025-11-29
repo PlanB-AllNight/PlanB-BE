@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from typing import Dict, List, Any
 
 from backend.models.analyze_spending import SpendingAnalysis, SpendingCategoryStats
-from backend.tools.analyze_spending import CATEGORY_MAP
+from backend.services.spending.analyze_spending import CATEGORY_MAP
 
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/mydata.json")

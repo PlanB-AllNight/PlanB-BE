@@ -25,6 +25,7 @@ async def run_mcp_agent(
     # ------------------------------
     source = req.context.get("source", "chat")       # chat or button
     screen = req.context.get("screen", "unknown")
+    payload_info = json.dumps(req.payload, ensure_ascii=False)
     user_text = req.query
 
     print(f"[MCP AGENT] Source={source} Screen={screen} Query='{user_text}'")
@@ -41,6 +42,10 @@ async def run_mcp_agent(
     [현재 화면]
     - {screen}
 
+    [Payload 정보]
+    아래 값들은 이미 사용자가 제공한 값입니다. 다시 물어보지 말고 그대로 사용하세요.
+    payload = {payload_info}
+
     [중요 규칙 - 소비 분석(analyze_spending)]
     - 사용자가 월을 입력하지 않아도 됩니다.
     - month가 없으면 Tool(analyze_spending)이 자동으로 최신 데이터를 선택합니다.
@@ -51,6 +56,43 @@ async def run_mcp_agent(
     - plan_type이 없으면 절대 사용자에게 물어보지 마세요.
     - 무조건 기본값 '50/30/20'을 사용하세요.
     - 질문을 유도하지 말고 즉시 도구를 실행하세요.
+
+    [simulate_event 규칙]
+    1. 사용자가 "시뮬레이션", "챌린지", "목표", "얼마 모아야 해", 
+        "얼마 필요해", "축의금", "결혼", "출산", "유학" 등
+        재무 목표 관련 표현을 쓰면 simulate_event Tool을 사용해야 합니다.
+    2. request.payload 안에 다음 값이 있다면 즉시 Tool을 실행합니다:
+        - event_name
+        - target_amount
+        - period
+        - current_asset
+        - monthly_save_potential
+    3. payload가 존재하고 값이 모두 들어있다면 절대 질문하지 말고 simulate_event Tool을 호출하세요.
+    4. source === "button" 또는 context.screen === "simulate"일 경우 무조건 simulate_event Tool을 호출해야 합니다.
+    5. 값이 일부만 비어있을 때만 사용자에게 질문합니다.
+
+    [create_challenge 규칙]
+    아래 조건이 충족되면 create_challenge Tool을 자동으로 실행해야 합니다.
+    1. payload에 아래 값들이 모두 존재하거나  
+        Tool 선택 직후 AI가 tool_call로 파라미터를 모두 제공할 수 있을 때:
+            - event_name
+            - target_amount
+            - period_months
+            - current_amount
+            - challenge_name
+            - plan_type
+            - plan_title
+            - description
+            - monthly_required
+            - monthly_shortfall
+            - final_estimated_asset
+            - expected_period
+            - plan_detail
+    2. 질문 금지:
+        - payload에 값이 있는데도 다시 묻지 말 것.
+        - "정말 챌린지를 생성할까요?" 같은 유도 질문 절대 금지.
+    3. simulate_event 이후 사용자가 “이걸로 챌린지 만들래”,  
+        “챌린지 생성”, “이 플랜으로 진행” 등 말하면 create_challenge Tool 호출.
 
     [Source 규칙]
     1) source='button'

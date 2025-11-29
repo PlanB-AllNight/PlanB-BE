@@ -18,11 +18,11 @@ from backend.models.challenge import (
     ChallengeStatus,
     PlanType
 )
-from backend.tools.analyze_spending import (
+from backend.services.spending.analyze_spending import (
     get_current_asset,
     get_latest_mydata_date
 )
-from backend.services.simulate_event_service import (
+from backend.services.simulate.simulate_event_service import (
     run_challenge_simulation_service,
     create_challenge_with_plan
 )
