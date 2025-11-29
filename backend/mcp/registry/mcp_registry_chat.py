@@ -107,9 +107,52 @@ class ToolRegistry:
                 "data": real_data,           # 원본 데이터도 같이 주면 좋음
                 "success": True
             }
+        
+        if tool_name == "support_detail":
+            if result["found"]:
+                policy = result["policy"]
+                
+                # [핵심] 챗봇의 말풍선 멘트
+                ai_message = f"""
+🎓 <b>{policy['title']}</b>에 대해 알려드릴게요!<br/>
+
+{policy['subtitle']}<br/><br/>
+
+✅ <b>누가 받을 수 있나요?</b><br/>
+{policy['target']}<br/><br/>
+
+📅 <b>신청은 언제인가요?</b><br/>
+{policy['apply_period']}<br/><br/>
+
+💰 <b>어떻게 지급되나요?</b><br/>
+{policy['pay_method']}<br/><br/>
+
+📝 <b>상세 내용</b><br/>
+{policy['content']}<br/><br/>
+
+👉 <a href="{policy['application_url']}" target="_blank">공식 사이트에서 더 보기</a>
+"""
+
+                
+                return {
+                    "type": "chat_response",
+                    "message": ai_message,
+                    "data": {
+                        "type": "markdown",
+                        "policy": policy
+                    },
+                    "success": True
+                }
+            else:
+                # 못 찾았을 때
+                return {
+                    "type": "chat_response",
+                    "message": result["message"],
+                    "data": None,
+                    "success": False
+                }
 
         return result
-
-
+    
 
 mcp_registry_chat = ToolRegistry()
