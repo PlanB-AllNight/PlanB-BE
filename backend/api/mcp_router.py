@@ -18,7 +18,13 @@ async def endpoint_mcp_intent(
     - 버튼 클릭(Intent)을 받아 적절한 도구를 실행하고,
     - Agent의 판단 과정(Trace)을 포함하여 결과를 반환합니다.
     """
-    result = await run_mcp_agent(
+    result = await run_financial_agent(
+        req=req,   
+        user=user,
+        session=session
+    )
+
+    return MCPResponse(**result)
         req=req,   
         user=user,
         session=session

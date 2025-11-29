@@ -10,7 +10,7 @@ from backend.mcp.registry import mcp_registry
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-async def run_mcp_agent(
+async def run_financial_agent(
     req: MCPRequest,
     user: User,
     session: Session
@@ -23,12 +23,10 @@ async def run_mcp_agent(
     # ------------------------------
     # 1) Context 가져오기
     # ------------------------------
-    source = req.context.get("source", "chat")       # chat or button
-    screen = req.context.get("screen", "unknown")
     payload_info = json.dumps(req.payload, ensure_ascii=False)
     user_text = req.query
 
-    print(f"[MCP AGENT] Source={source} Screen={screen} Query='{user_text}'")
+    print(f"[MCP AGENT] Query='{user_text}'")
 
     # ------------------------------
     # 2) MCP 스타일 시스템 프롬프트
@@ -39,35 +37,25 @@ async def run_mcp_agent(
     [사용자 정보]
     - User ID: {user.id}
 
-    [현재 화면]
-    - {screen}
-
     [Payload 정보]
     아래 값들은 이미 사용자가 제공한 값입니다. 다시 물어보지 말고 그대로 사용하세요.
     payload = {payload_info}
 
-    ## [Source 규칙]
-    1) source='button'
-        - 사용자는 명령을 직접 실행하려고 함
-        - 절대 긴 설명 금지
-        - 즉시 적절한 MCP Tool을 호출해야 함
+    ## [답변 규칙]
+    - 사용자는 명령을 직접 실행하려고 함
+    - 절대 긴 설명 금지
+    - 즉시 적절한 MCP Tool을 호출해야 함
+    - 호출할 수 있는 MCP Tool은 다음과 같음(중요):
+        recommend_budget, simulate_event, analyze_spending, create_challenge
+        이 외의 Tool은 호출하지 않아야 합니다.
 
-    2) source='chat'
-        - 사용자가 아래와 같은 요청을 하면, 절대 직접 MCP Tool(analyze_spending, recommend_budget, simulate_event, create_challenge)을 호출하지 마세요.
-            예: "소비 분석해줘", "이번 달 분석", "예산 추천해줘", "예산 알려줘", "시뮬레이션 하고 싶어", "목표 계산할래",
-                "챌린지 만들고 싶어", "챌린지 생성"
-        - 이런 자연어 요청은 반드시 redirect Tool을 호출해 사용자를 해당 화면으로 이동시키는 방식으로 처리합니다.
-        - 사용자는 금융 상담을 원함
-        - 필요 시 MCP Tool을 호출해 실데이터 기반 조언
-        - "이동"/"분석해줘"/"예산 추천해줘" 등 자연어는 tool로 변환
-
-    [중요 규칙 - 소비 분석(analyze_spending)]
+    [소비 분석(analyze_spending)]
     - 사용자가 월을 입력하지 않아도 됩니다.
     - month가 없으면 Tool(analyze_spending)이 자동으로 최신 데이터를 선택합니다.
     - 절대 "몇 월을 분석할까요?"라고 물어보지 마세요.
     - 요청이 '분석'과 관련 있으면 바로 analyze_spending Tool을 실행하세요.
     
-    [중요 규칙 - 예산 추천(recommend_budget)]
+    [예산 추천(recommend_budget)]
     - plan_type이 없으면 절대 사용자에게 물어보지 마세요.
     - 무조건 기본값 '50/30/20'을 사용하세요.
     - 질문을 유도하지 말고 즉시 도구를 실행하세요.
@@ -107,18 +95,7 @@ async def run_mcp_agent(
         - payload에 값이 있는데도 다시 묻지 말 것.
         - "정말 챌린지를 생성할까요?" 같은 유도 질문 절대 금지.
     3. simulate_event 이후 사용자가 “이걸로 챌린지 만들래”,  
-        “챌린지 생성”, “이 플랜으로 진행” 등 말하면 create_challenge Tool 호출.
-
-    [redirect 규칙]
-    - 사용자가 "예산 추천 페이지로 가줘", "시뮬레이션 하러 갈래" 등 페이지 이동을 요청하면 redirect Tool을 호출하십시오.
-    - redirect Tool의 파라미터 target은 다음 중 하나여야 합니다:
-        ["analysis", "budget", "simulate"]
-    - redirect Tool의 target 매핑은 다음과 같습니다.
-        - 소비 분석 관련 -> target="analysis"
-        - 예산 추천 관련 -> target="budget"
-        - 시뮬레이션 관련 -> target="simulate"
-        - 챌린지 생성은 시뮬레이션 화면으로 이동 -> target="simulate"
-    - 프론트에서 이동하기 때문에 메시지를 길게 쓰지 마세요.
+        “챌린지 생성”, “이 플랜으로 진행” 등 말하면 create_challenge Tool 호출
 
     [응답 규칙]
     - 반드시 하나의 tool을 선택하거나, 메시지(text)로 답하세요
@@ -165,11 +142,7 @@ async def run_mcp_agent(
             "type": "tool_result",
             "tool": tool_name,
             "data": result,
-            "agent_trace": {
-                "source": source,
-                "screen": screen,
-                "action": "Executed MCP Tool"
-            }
+            "action": "Executed MCP Tool"
         }
 
     # ------------------------------
@@ -178,9 +151,5 @@ async def run_mcp_agent(
     return {
         "type": "message",
         "message": msg.content,
-        "agent_trace": {
-            "source": source,
-            "screen": screen,
-            "action": "Chat response"
-        }
+        "action": "Chat response"
     }
