@@ -18,6 +18,7 @@ import backend.mcp.tools.spending
 import backend.mcp.tools.budget
 import backend.mcp.tools.simulate
 import backend.mcp.tools.challenge
+import backend.mcp.tools.redirect
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

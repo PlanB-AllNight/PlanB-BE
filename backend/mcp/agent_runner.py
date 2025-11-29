@@ -46,6 +46,21 @@ async def run_mcp_agent(
     아래 값들은 이미 사용자가 제공한 값입니다. 다시 물어보지 말고 그대로 사용하세요.
     payload = {payload_info}
 
+    ## [Source 규칙]
+    1) source='button'
+        - 사용자는 명령을 직접 실행하려고 함
+        - 절대 긴 설명 금지
+        - 즉시 적절한 MCP Tool을 호출해야 함
+
+    2) source='chat'
+        - 사용자가 아래와 같은 요청을 하면, 절대 직접 MCP Tool(analyze_spending, recommend_budget, simulate_event, create_challenge)을 호출하지 마세요.
+            예: "소비 분석해줘", "이번 달 분석", "예산 추천해줘", "예산 알려줘", "시뮬레이션 하고 싶어", "목표 계산할래",
+                "챌린지 만들고 싶어", "챌린지 생성"
+        - 이런 자연어 요청은 반드시 redirect Tool을 호출해 사용자를 해당 화면으로 이동시키는 방식으로 처리합니다.
+        - 사용자는 금융 상담을 원함
+        - 필요 시 MCP Tool을 호출해 실데이터 기반 조언
+        - "이동"/"분석해줘"/"예산 추천해줘" 등 자연어는 tool로 변환
+
     [중요 규칙 - 소비 분석(analyze_spending)]
     - 사용자가 월을 입력하지 않아도 됩니다.
     - month가 없으면 Tool(analyze_spending)이 자동으로 최신 데이터를 선택합니다.
@@ -94,16 +109,16 @@ async def run_mcp_agent(
     3. simulate_event 이후 사용자가 “이걸로 챌린지 만들래”,  
         “챌린지 생성”, “이 플랜으로 진행” 등 말하면 create_challenge Tool 호출.
 
-    [Source 규칙]
-    1) source='button'
-       - 사용자는 명령을 직접 실행하려고 함
-       - 절대 긴 설명 금지
-       - 즉시 적절한 MCP Tool을 호출해야 함
-
-    2) source='chat'
-       - 사용자는 금융 상담을 원함
-       - 필요 시 MCP Tool을 호출해 실데이터 기반 조언
-       - "이동"/"분석해줘"/"예산 추천해줘" 등 자연어는 tool로 변환
+    [redirect 규칙]
+    - 사용자가 "예산 추천 페이지로 가줘", "시뮬레이션 하러 갈래" 등 페이지 이동을 요청하면 redirect Tool을 호출하십시오.
+    - redirect Tool의 파라미터 target은 다음 중 하나여야 합니다:
+        ["analysis", "budget", "simulate"]
+    - redirect Tool의 target 매핑은 다음과 같습니다.
+        - 소비 분석 관련 -> target="analysis"
+        - 예산 추천 관련 -> target="budget"
+        - 시뮬레이션 관련 -> target="simulate"
+        - 챌린지 생성은 시뮬레이션 화면으로 이동 -> target="simulate"
+    - 프론트에서 이동하기 때문에 메시지를 길게 쓰지 마세요.
 
     [응답 규칙]
     - 반드시 하나의 tool을 선택하거나, 메시지(text)로 답하세요
