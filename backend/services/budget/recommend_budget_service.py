@@ -7,7 +7,7 @@ from backend.models.user import User
 from backend.models.budget import BudgetAnalysis, BudgetResponse, BudgetSummaryItem, BudgetSummary, CategoryBudget
 from backend.models.analyze_spending import SpendingAnalysis
 
-from backend.tools.recommend_budget import recommend_budget_logic
+from backend.services.budget.recommend_budget import recommend_budget_logic
 
 from backend.ai.services.budget_ai_service import generate_ai_insight
 

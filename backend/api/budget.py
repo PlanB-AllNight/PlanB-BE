@@ -5,7 +5,7 @@ from backend.database import get_session
 from backend.models.user import User
 from backend.api.deps import get_current_user
 from backend.models.budget import BudgetAnalysis
-from backend.services.recommend_budget_service import run_budget_recommendation_service
+from backend.services.budget.recommend_budget_service import run_budget_recommendation_service
 
 router = APIRouter()
 

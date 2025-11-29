@@ -11,7 +11,7 @@ from backend.mcp import models
 from backend.models import user, analyze_spending, challenge, budget, support
 
 # API 라우터 임포트
-from backend.api import user, analyze, budget, support, chat, mcp_router
+from backend.api import user, analyze, budget, support, chat, mcp_router, challenge
 
 # MCP server 등록
 import backend.mcp.tools.spending
@@ -55,4 +55,3 @@ app.include_router(analyze.router, prefix="/analyze", tags=["Analyze"])
 app.include_router(challenge.router, prefix="/challenge", tags=["Challenge"])
 app.include_router(budget.router, prefix="/budget", tags=["Budget"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
-app.include_router(support.router, prefix="/chat", tags=["Chat"])

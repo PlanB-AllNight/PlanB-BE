@@ -5,7 +5,7 @@ from typing import Optional
 from backend.database import get_session
 from backend.models.user import User
 from backend.api.deps import get_current_user  # ⭐ PR에서 만든 함수 사용
-from backend.services.analyze_spending_service import run_spending_analysis_service
+from backend.services.spending.analyze_spending_service import run_spending_analysis_service
 from backend.models.analyze_spending import SpendingAnalysis, SpendingCategoryStats
 
 router = APIRouter()
@@ -18,7 +18,7 @@ async def analyze_spending(
 ):  
     if not month:
         import pandas as pd
-        from backend.tools.analyze_spending import DATA_PATH
+        from backend.services.spending.analyze_spending import DATA_PATH
         
         try:
             df = pd.read_json(DATA_PATH)
