@@ -7,7 +7,7 @@ from typing import Dict, List, Any, Optional
 
 # 데이터 경로
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, "../data/mydata.json")
+DATA_PATH = os.path.join(BASE_DIR, "../../data/mydata.json")
 
 # 카테고리 매핑
 CATEGORY_MAP = {
