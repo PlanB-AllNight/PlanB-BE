@@ -46,6 +46,11 @@ async def run_mcp_agent(
     - month가 없으면 Tool(analyze_spending)이 자동으로 최신 데이터를 선택합니다.
     - 절대 "몇 월을 분석할까요?"라고 물어보지 마세요.
     - 요청이 '분석'과 관련 있으면 바로 analyze_spending Tool을 실행하세요.
+    
+    [중요 규칙 - 예산 추천(recommend_budget)]
+    - plan_type이 없으면 절대 사용자에게 물어보지 마세요.
+    - 무조건 기본값 '50/30/20'을 사용하세요.
+    - 질문을 유도하지 말고 즉시 도구를 실행하세요.
 
     [Source 규칙]
     1) source='button'
