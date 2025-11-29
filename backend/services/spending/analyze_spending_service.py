@@ -114,7 +114,10 @@ async def run_spending_analysis_service(
     if active_challenges:
         latest_challenge = active_challenges[0]
         challenge_comparison = compare_with_challenge(tool_result, latest_challenge)
-        print(f"   🎯 챌린지 비교 완료: {challenge_comparison['challenge_name']}")
+        if challenge_comparison:
+            print(f"   🎯 챌린지 비교 완료: {challenge_comparison['challenge_name']}")
+        else:
+            print("   🎯 챌린지는 있으나 비교할 수 있는 데이터가 없어 None 반환됨")
     
     # 3. AI 종합 분석 (최종 insights, suggestions, insight_summary 생성)
     print(f"   🤖 AI 종합 분석 시작...")
