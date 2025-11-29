@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
+from datetime import datetime
+
 from backend.database import get_session
 from backend.models.user import User
 from backend.api.deps import get_current_user
@@ -113,4 +115,61 @@ async def get_budget_detail(
         raise HTTPException(
             status_code=500,
             detail=f"예산 추천 상세 조회 중 오류: {str(e)}"
+        )
+
+@router.post("/recommend/save")
+async def save_selected_budget(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    사용자가 선택한 예산안(추천 결과)을 BudgetAnalysis 테이블에 저장하는 API
+    """
+
+    try:
+        # 예산 구조 추출
+        spending_analysis_id=payload.get("spending_analysis_id")
+        title=payload.get("title")
+        plan_type = payload.get("plan_type")
+        essential_budget = payload.get("essential_budget")
+        optional_budget = payload.get("optional_budget")
+        saving_budget = payload.get("saving_budget")
+
+        category_proposals = payload.get("category_proposals")
+        ai_proposal = payload.get("ai_proposal")
+
+        if not (plan_type and essential_budget and optional_budget and saving_budget):
+            raise HTTPException(400, "필수 예산 정보가 누락되었습니다.")
+
+        # DB 저장
+        new_obj = BudgetAnalysis(
+            user_id=current_user.id,
+            spending_analysis_id=spending_analysis_id,
+
+            title=title,
+            plan_type=plan_type,
+            essential_budget=essential_budget,
+            optional_budget=optional_budget,
+            saving_budget=saving_budget,
+
+            category_proposals=category_proposals,
+            ai_proposal=ai_proposal,
+            created_at=datetime.now()
+        )
+
+        session.add(new_obj)
+        session.commit()
+        session.refresh(new_obj)
+
+        return {
+            "success": True,
+            "message": "예산안이 저장되었습니다.",
+            "budget_id": new_obj.id
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"예산안 저장 중 오류: {str(e)}"
         )
