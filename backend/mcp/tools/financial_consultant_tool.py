@@ -150,7 +150,7 @@ async def consult_financial_advisor(
         query=query,
         topic=topic,
         user_context=user_context,
-        knowledge_base=knowledge
+        knowledge_base=full_knowledge
     )
     
     system_msg = "당신은 최고의 대학생 금융 멘토입니다. JSON으로만 응답하세요."
