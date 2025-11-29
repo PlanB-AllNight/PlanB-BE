@@ -98,7 +98,7 @@ async def run_spending_analysis_service(
     
     # 1. Tool 실행 (원본 데이터 수집)
     print(f"{user.name}님 {month} 소비 분석 시작...")
-    tool_result = analyze_spending(month=month, use_demo_mode=True)
+    tool_result = analyze_spending(month=month)
     
     if "error" in tool_result:
         raise HTTPException(status_code=400, detail=tool_result["error"])

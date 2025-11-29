@@ -9,7 +9,7 @@ from backend.data.insert_support_info import insert_support_info
 from backend.models import user, analyze_spending, challenge, budget, support
 
 # API 라우터 임포트
-from backend.api import user, analyze, budget, support
+from backend.api import user, analyze, challenge, budget, support
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,5 +45,6 @@ def read_root():
 # 라우터 등록
 app.include_router(user.router, prefix="/users", tags=["User"])
 app.include_router(analyze.router, prefix="/analyze", tags=["Analyze"])
+app.include_router(challenge.router, prefix="/challenge", tags=["Challenge"])
 app.include_router(budget.router, prefix="/budget", tags=["Budget"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
