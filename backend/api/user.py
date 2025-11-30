@@ -85,6 +85,7 @@ async def get_mypage_summary(
 
     if not recent_spending or not recent_budget:
         achievement_rate = None
+        saved_amount = None
     else: 
         # 절약 금액 계산
         recommended_total = (
