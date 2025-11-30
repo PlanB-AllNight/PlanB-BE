@@ -77,7 +77,15 @@ PERSONAS = {
             {"day": 10, "name": "아르바이트 급여", "amount": 600000},
             {"day": 25, "name": "부모님 용돈", "amount": 400000}
         ],
-        "multipliers": {}
+        "multipliers": {
+            "쇼핑": {"freq": 0.6, "amount": 0.6},
+            "식비": {"freq": 0.8, "amount": 0.8},
+            "카페": {"freq": 0.7, "amount": 0.7},
+            "사회": {"freq": 0.5, "amount": 0.8},
+            "여가": {"freq": 0.5, "amount": 0.7},  
+            "교통": {"freq": 0.7, "amount": 1.0},
+            "편의점": {"freq": 0.8, "amount": 0.9} 
+        }
     },
     "OVERSPENDER": {
         "desc": "과소비형 (2025.08.22 기준)",
@@ -103,7 +111,7 @@ PERSONAS = {
             {"day": 25, "name": "부모님 용돈", "amount": 100000}
         ],
         "multipliers": {
-            "카페": {"freq": 0.3, "amount": 0.5},
+            "카페": {"freq": 0.9, "amount": 0.6},
             "식비": {"freq": 0.7, "amount": 0.7},
             "쇼핑": {"freq": 0.2, "amount": 0.5},
             "사회": {"freq": 0.4, "amount": 0.6},
@@ -118,8 +126,8 @@ PERSONAS = {
             {"day": 20, "name": "부모님 용돈", "amount": 200000}
         ],
         "multipliers": {
-            "식비": {"freq": 1.3, "amount": 1.3},
-            "교통": {"freq": 1.5, "amount": 2.5},
+            "식비": {"freq": 1.2, "amount": 1.3},
+            "교통": {"freq": 2.5, "amount": 2.5},
             "여가": {"freq": 1.5, "amount": 1.0}
         },
         "time_shift": 4
