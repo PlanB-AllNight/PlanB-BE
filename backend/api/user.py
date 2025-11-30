@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 from backend.database import get_session
 from backend.models.user import User, UserCreate, UserLogin, UserRead
+from backend.models.analyze_spending import SpendingAnalysis
+from backend.models.budget import BudgetAnalysis
+from backend.models.challenge import Challenge, ChallengeStatus
 from backend.core.security import get_password_hash, verify_password, create_access_token
+
+from backend.api.deps import get_current_user
 
 router = APIRouter()
 
@@ -55,5 +60,60 @@ def login(user: UserLogin, session: Session = Depends(get_session)):
             "id": db_user.id,
             "userId": db_user.userId,
             "name": db_user.name
+        }
+    }
+
+# 마이 페이지 Summary조회
+@router.get("/mypage/summary")
+async def get_mypage_summary(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # 최근 소비 분석
+    recent_spending = session.exec(
+        select(SpendingAnalysis)
+        .where(SpendingAnalysis.user_id == current_user.id)
+        .order_by(SpendingAnalysis.id.desc())
+    ).first()
+
+    # 최근 예산안
+    recent_budget = session.exec(
+        select(BudgetAnalysis)
+        .where(BudgetAnalysis.user_id == current_user.id)
+        .order_by(BudgetAnalysis.id.desc())
+    ).first()
+
+    if not recent_spending or not recent_budget:
+        achievement_rate = None
+        saved_amount = None
+    else: 
+        # 절약 금액 계산
+        recommended_total = (
+            recent_budget.essential_budget +
+            recent_budget.optional_budget +
+            recent_budget.saving_budget
+        )
+        actual_total = recent_spending.total_spent
+        saved_amount = max(recommended_total - actual_total, 0)
+
+        # 달성률 계산
+        achievement_rate = round((actual_total / recommended_total) * 100)
+
+    # 진행 중 챌린지 개수 (없다면 0)
+    ongoing_challenges = session.exec(
+        select(Challenge)
+        .where(Challenge.user_id == current_user.id)
+        .where(Challenge.status == ChallengeStatus.IN_PROGRESS)
+    ).all()
+
+    ongoing_challenge_count = len(ongoing_challenges)
+
+    return {
+        "success": True,
+        "data": {
+            "name": current_user.name,
+            "saved_amount": saved_amount,
+            "achievement_rate": achievement_rate,
+            "ongoing_challenges": ongoing_challenge_count
         }
     }
