@@ -63,6 +63,14 @@ def login(user: UserLogin, session: Session = Depends(get_session)):
         }
     }
 
+# 로그아웃 API
+@router.post("/logout")
+async def logout():
+    return {
+        "success": True,
+        "message": "로그아웃 되었습니다."
+    }
+
 # 마이 페이지 Summary조회
 @router.get("/mypage/summary")
 async def get_mypage_summary(
