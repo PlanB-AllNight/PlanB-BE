@@ -95,6 +95,7 @@ def get_user_financial_context(user: User, session: Session) -> Dict[str, Any]:
         select(Challenge)
         .where(Challenge.user_id == user.id)
         .where(Challenge.status == ChallengeStatus.IN_PROGRESS)
+        .order_by(Challenge.created_at.desc())
     ).first()
     
     if challenge:
