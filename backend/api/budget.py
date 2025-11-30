@@ -6,7 +6,7 @@ from datetime import datetime
 from backend.database import get_session
 from backend.models.user import User
 from backend.api.deps import get_current_user
-from backend.models.budget import BudgetAnalysis
+from backend.models.budget import BudgetAnalysis, BudgetSummary, BudgetSummaryItem
 from backend.services.budget.recommend_budget_service import run_budget_recommendation_service
 
 router = APIRouter()
@@ -58,6 +58,7 @@ async def get_budget_history(
         history = [
             {
                 "id": r.id,
+                "title": r.title,
                 "plan_type": r.plan_type,
                 "essential_budget": r.essential_budget,
                 "optional_budget": r.optional_budget,
@@ -94,18 +95,30 @@ async def get_budget_detail(
 
         if record.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="권한이 없습니다.")
+        
+        plan_percents = {
+            "50/30/20": (50, 30, 20),
+            "60/20/20": (60, 20, 20),
+            "40/40/20": (40, 40, 20),
+        }
+
+        needs_p, wants_p, savings_p = plan_percents.get(record.plan_type, (0, 0, 0))
 
         return {
             "success": True,
             "data": {
                 "id": record.id,
-                "plan_type": record.plan_type,
-                "essential_budget": record.essential_budget,
-                "optional_budget": record.optional_budget,
-                "saving_budget": record.saving_budget,
+                "spending_analysis_id": record.spending_analysis_id,
+                "title": record.title,
+                "date": record.created_at.strftime("%Y년 %m월"),
+                "selected_plan": record.plan_type,
+                "budget_summary": {
+                    "needs": {"amount": record.essential_budget, "percent": needs_p},
+                    "wants": {"amount": record.optional_budget, "percent": wants_p},
+                    "savings": {"amount": record.saving_budget, "percent": savings_p},
+                },
                 "ai_proposal": record.ai_proposal,
                 "category_proposals": record.category_proposals,
-                "created_at": record.created_at.isoformat()
             }
         }
 
