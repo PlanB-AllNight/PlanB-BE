@@ -32,7 +32,21 @@ def calculate_age(birth_str: str) -> int:
 
 def normalize_category(query_category: str) -> str:
     """사용자의 자연어 카테고리를 시스템 카테고리로 매핑"""
+    if not query_category:
+        return "전체"
+    
     map_dict = {
+        "식사": "식사",
+        "교통": "교통",
+        "주거": "주거",
+        "통신": "통신/구독",
+        "쇼핑": "쇼핑/꾸미기",
+        "카페": "카페/디저트",
+        "술": "술/유흥",
+        "교육": "교육/학습",
+        "저축": "저축/투자",
+        "투자": "저축/투자",
+
         "밥": "식사", "식비": "식사", "편의점": "식사",
         "커피": "카페/디저트", "카페": "카페/디저트", "디저트": "카페/디저트",
         "옷": "쇼핑/꾸미기", "쇼핑": "쇼핑/꾸미기", "화장품": "쇼핑/꾸미기",
@@ -41,26 +55,73 @@ def normalize_category(query_category: str) -> str:
         "집": "주거", "월세": "주거",
         "폰": "통신/구독", "넷플릭스": "통신/구독"
     }
+    if query_category in map_dict:
+        return map_dict[query_category]
+    
     for key, val in map_dict.items():
         if key in query_category:
             return val
     return "전체"
 
-def get_real_peer_average(session: Session, category: str) -> int:
+def get_real_peer_average(session: Session, category: str, age: int) -> int:
     """
     [핵심] DB에서 실제 사용자들의 해당 카테고리 평균 지출액을 계산합니다.
     """
     try:
+        current_year = datetime.now().year
+        birth_year = current_year - age
+
+        start_year_prefix = str(birth_year - 2)
+        end_year_prefix = str(birth_year + 2)
+
+        avg_val = 0
+
         if category == "전체":
-            statement = select(func.avg(SpendingAnalysis.total_spent))
-        else:
-            statement = select(func.avg(SpendingCategoryStats.amount)).where(
-                SpendingCategoryStats.category_name == category
+            statement = (
+                select(func.avg(SpendingAnalysis.total_spent))
+                .join(User, SpendingAnalysis.user_id == User.id)
+                .where(User.birth >= start_year_prefix)
+                .where(User.birth <= end_year_prefix + "1231")
             )
+
+            count_stmt = (
+                select(func.count(SpendingAnalysis.id))
+                .join(User, SpendingAnalysis.user_id == User.id)
+                .where(User.birth >= start_year_prefix)
+                .where(User.birth <= end_year_prefix + "1231")
+            )
+            count = session.exec(count_stmt).one()
+
+            if count <= 2:
+                return 0
             
-        result = session.exec(statement).first()
-        
-        return int(result) if result else 0
+            avg_val = session.exec(statement).first()
+        else:
+            statement = (
+                select(func.avg(SpendingCategoryStats.amount))
+                .join(SpendingAnalysis, SpendingCategoryStats.analysis_id == SpendingAnalysis.id)
+                .join(User, SpendingAnalysis.user_id == User.id)
+                .where(SpendingCategoryStats.category_name == category)
+                .where(User.birth >= start_year_prefix)
+                .where(User.birth <= end_year_prefix + "1231")
+            )
+
+            count_stmt = (
+                select(func.count(SpendingCategoryStats.id))
+                .join(SpendingAnalysis, SpendingCategoryStats.analysis_id == SpendingAnalysis.id)
+                .join(User, SpendingAnalysis.user_id == User.id)
+                .where(SpendingCategoryStats.category_name == category)
+                .where(User.birth >= start_year_prefix)
+                .where(User.birth <= end_year_prefix + "1231")
+            )
+            count = session.exec(count_stmt).one()
+
+            if count <= 2:
+                return 0
+            
+            avg_val = session.exec(statement).first()
+            
+        return int(avg_val) if avg_val else 0
         
     except Exception as e:
         print(f"[DB Average Error] {e}")
@@ -104,7 +165,8 @@ async def compare_with_peers(
                 break
     
     #  또래 평균 데이터 가져오기
-    peer_avg = get_real_peer_average(session, target_category)
+    age = calculate_age(user.birth)
+    peer_avg = get_real_peer_average(session, target_category, age)
 
     if peer_avg == 0:
         peer_avg = FALLBACK_STATS.get(target_category, 100000)
@@ -116,8 +178,6 @@ async def compare_with_peers(
     diff = my_amount - peer_avg
     percent = int((my_amount / peer_avg) * 100) if peer_avg > 0 else 0
 
-    age = calculate_age(user.birth)
-    
     status_label = ""
     status_color = "" # 프론트엔드 참고용 (success, warning, danger)
     message = ""
@@ -139,10 +199,13 @@ async def compare_with_peers(
         status_color = "primary"
         message = f"와우! 평균보다 {abs(diff):,}원이나 아끼셨어요. 저축왕 유망주입니다!"
 
+    if target_category == "전체":
+        message += "\n\n(Tip: '식비 비교해줘'처럼 궁금한 항목을 콕 집어 말하면 더 정확하게 비교해드려요!)"
+
     return {
         "status": "success",
         "comparison": {
-            "title": f"{age}세 또래와의 비교",
+            "title": f"{age}세 또래와의 {target_category} 소비 비교",
             "category": target_category,
             "my_amount": my_amount,
             "peer_avg": peer_avg,
