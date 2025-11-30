@@ -91,7 +91,7 @@ pnpm-debug.log*
 # === 데이터 백업 파일 ===
 backend/data/mydata_backup*.json
 backend/data/mydata_3months.json
-backend/data/setup_data.sh
+# backend/data/setup_data.sh
 
 # --- 보안 및 환경설정 ---
 .env
